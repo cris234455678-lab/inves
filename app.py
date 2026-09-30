@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import os, datetime, numpy as np, pandas as pd
 import plotly.express as px, plotly.graph_objects as go
 import streamlit as st
