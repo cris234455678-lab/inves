@@ -4,46 +4,565 @@ import plotly.express as px, plotly.graph_objects as go
 import streamlit as st
 from supabase import create_client, Client
 
-st.set_page_config(page_title="资产管理看板", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="资产管理看板", page_icon="◆", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-.stApp {background: linear-gradient(180deg, #0b0b12 0%, #111118 100%); color: #e2e8f0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;}
-#MainMenu, footer, header {visibility: hidden;}
-h1 {color: #f8fafc; font-weight: 800; font-size: 1.75rem; letter-spacing: -0.02em; margin-bottom: 0.25rem;}
-h2, h3 {color: #f1f5f9; font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; margin-top: 1.2rem; margin-bottom: 0.7rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(148,163,184,0.12);}
-div[data-testid="stMetric"] {background: linear-gradient(135deg, rgba(30,30,45,0.9) 0%, rgba(22,22,32,0.95) 100%); border: 1px solid rgba(148,163,184,0.1); border-radius: 14px; padding: 16px 18px; box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04); transition: all 0.25s cubic-bezier(0.4,0,0.2,1);}
-div[data-testid="stMetric"]:hover {border-color: rgba(129,140,248,0.3); box-shadow: 0 8px 32px rgba(129,140,248,0.12); transform: translateY(-2px);}
-div[data-testid="stMetric"] label {color: #94a3b8 !important; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;}
-div[data-testid="stMetricValue"] {font-size: 1.55rem; font-weight: 700; color: #f8fafc; letter-spacing: -0.01em; margin-top: 4px;}
-div[data-testid="stMetricDelta"] {font-size: 0.78rem; font-weight: 600;}
-.stTabs [data-baseweb="tab-list"] {gap: 4px; background: rgba(30,30,45,0.6); padding: 5px; border-radius: 12px; border: 1px solid rgba(148,163,184,0.08); margin-bottom: 1rem; backdrop-filter: blur(10px);}
-.stTabs [data-baseweb="tab"] {background: transparent; border-radius: 9px; padding: 9px 16px; color: #94a3b8; font-weight: 500; font-size: 0.88rem; transition: all 0.2s;}
-.stTabs [data-baseweb="tab"]:hover {color: #e2e8f0; background: rgba(148,163,184,0.08);}
-.stTabs [aria-selected="true"] {background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%) !important; color: #fff !important; font-weight: 600; box-shadow: 0 4px 16px rgba(99,102,241,0.35);}
-.stButton > button {background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%); border: none; border-radius: 10px; color: #fff; font-weight: 600; font-size: 0.88rem; padding: 0.5rem 1.3rem; box-shadow: 0 4px 16px rgba(99,102,241,0.25); transition: all 0.2s;}
-.stButton > button:hover {background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 100%); box-shadow: 0 6px 24px rgba(99,102,241,0.4); transform: translateY(-1px); color: #fff;}
-.stTextInput > div > div > input, .stNumberInput > div > div > input, .stDateInput > div > div > input {background: rgba(15,15,25,0.8); border: 1px solid rgba(148,163,184,0.15); border-radius: 10px; color: #f1f5f9; font-size: 0.9rem; padding: 8px 12px;}
-.stTextInput > div > div > input:focus, .stNumberInput > div > div > input:focus, .stDateInput > div > div > input:focus {border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,0.15);}
-.stTextInput label, .stNumberInput label, .stDateInput label, .stSelectbox label, .stMultiSelect label {color: #cbd5e1 !important; font-weight: 500; font-size: 0.82rem;}
-.stSelectbox > div > div > div, .stMultiSelect > div > div > div {background: rgba(15,15,25,0.8); border: 1px solid rgba(148,163,184,0.15); border-radius: 10px; color: #f1f5f9;}
-.stDataFrame {border-radius: 12px; overflow: hidden; border: 1px solid rgba(148,163,184,0.1); box-shadow: 0 4px 20px rgba(0,0,0,0.2);}
-.stDataFrame table {background: rgba(22,22,32,0.9);}
-.stDataFrame th {background: rgba(30,30,45,0.95); color: #cbd5e1; font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 2px solid rgba(129,140,248,0.2); padding: 10px 12px;}
-.stDataFrame td {color: #e2e8f0; border-bottom: 1px solid rgba(148,163,184,0.06); padding: 8px 12px; font-size: 0.88rem;}
-.stDataFrame tr:hover td {background: rgba(129,140,248,0.06);}
-.stInfo {background: rgba(30,30,45,0.7); border: 1px solid rgba(129,140,248,0.25); border-left: 3px solid #818cf8; border-radius: 10px; color: #cbd5e1; padding: 12px 16px;}
-.stSuccess {background: rgba(30,45,35,0.7); border: 1px solid rgba(52,211,153,0.25); border-left: 3px solid #34d399; border-radius: 10px; color: #a7f3d0; padding: 12px 16px;}
-.stWarning {background: rgba(45,40,25,0.7); border: 1px solid rgba(251,191,36,0.25); border-left: 3px solid #fbbf24; border-radius: 10px; color: #fde68a; padding: 12px 16px;}
-.stError {background: rgba(45,25,30,0.7); border: 1px solid rgba(248,113,113,0.25); border-left: 3px solid #f87171; border-radius: 10px; color: #fecaca; padding: 12px 16px;}
-.stDivider {border-color: rgba(148,163,184,0.1) !important;}
-.stDataEditor {border-radius: 12px; overflow: hidden; border: 1px solid rgba(148,163,184,0.1);}
-.stCaption {color: #64748b; font-size: 0.78rem;}
-::-webkit-scrollbar {width: 8px; height: 8px;}
-::-webkit-scrollbar-track {background: transparent;}
-::-webkit-scrollbar-thumb {background: rgba(148,163,184,0.2); border-radius: 4px;}
-::-webkit-scrollbar-thumb:hover {background: rgba(148,163,184,0.35);}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+    --bg: #08090b;
+    --surface: #0e0f12;
+    --surface-2: #14151a;
+    --line: rgba(255,255,255,0.05);
+    --line-2: rgba(255,255,255,0.09);
+    --line-3: rgba(255,255,255,0.14);
+    --fg: #e8eaee;
+    --fg-2: #9ca3af;
+    --fg-3: #5a6069;
+    --amber: #ffb800;
+    --amber-2: #ff9e00;
+    --amber-dim: rgba(255,184,0,0.10);
+    --green: #00d26a;
+    --green-dim: rgba(0,210,106,0.10);
+    --red: #ff4757;
+    --red-dim: rgba(255,71,87,0.10);
+}
+
+/* ========== 基础 ========== */
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+.stApp {
+    background: var(--bg);
+    background-image:
+        linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px),
+        radial-gradient(1000px 700px at 15% -10%, rgba(255,184,0,0.06), transparent 60%),
+        radial-gradient(800px 600px at 110% 110%, rgba(255,158,0,0.04), transparent 60%);
+    background-size: 36px 36px, 36px 36px, auto, auto;
+    color: var(--fg);
+}
+
+#MainMenu, footer, header { visibility: hidden; }
+
+/* ========== 主内容区 ========== */
+.main .block-container,
+.block-container {
+    padding: 1.8rem 2.2rem 4rem 2.2rem !important;
+    max-width: 1500px;
+}
+
+/* ========== 侧边栏 ========== */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0a0b0e 0%, #08090b 100%);
+    border-right: 1px solid var(--line);
+    min-width: 240px !important;
+    max-width: 240px !important;
+}
+
+[data-testid="stSidebar"] > div:first-child {
+    padding-top: 1.6rem;
+}
+
+[data-testid="stSidebar"] .block-container {
+    padding: 0.5rem 1rem !important;
+}
+
+/* 侧边栏品牌区 */
+.side-brand {
+    padding: 0 0.5rem 1.2rem 0.5rem;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 1rem;
+}
+.side-brand-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: var(--amber);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.side-brand-title::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--amber);
+    box-shadow: 0 0 10px var(--amber), 0 0 20px rgba(255,184,0,0.5);
+    animation: blink 2s ease-in-out infinite;
+}
+@keyframes blink {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+.side-brand-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--fg-3);
+    letter-spacing: 0.14em;
+    margin-top: 6px;
+    padding-left: 14px;
+}
+
+/* 侧边栏导航（radio 改造） */
+[data-testid="stSidebar"] [role="radiogroup"] {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 0;
+}
+
+[data-testid="stSidebar"] [role="radiogroup"] > label {
+    display: flex !important;
+    align-items: center;
+    padding: 11px 14px !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    border-left: 2px solid transparent !important;
+    background: transparent !important;
+    cursor: pointer;
+    transition: all .15s ease;
+    color: var(--fg-2) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.74rem !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+/* 隐藏 radio 圆圈 */
+[data-testid="stSidebar"] [role="radiogroup"] > label > div:first-of-type {
+    display: none !important;
+}
+
+[data-testid="stSidebar"] [role="radiogroup"] > label:hover {
+    background: rgba(255,184,0,0.04) !important;
+    color: var(--fg) !important;
+}
+
+[data-testid="stSidebar"] [role="radiogroup"] > label:has(input:checked) {
+    background: linear-gradient(90deg, rgba(255,184,0,0.10) 0%, transparent 100%) !important;
+    border-left-color: var(--amber) !important;
+    color: var(--amber) !important;
+    font-weight: 600;
+}
+
+[data-testid="stSidebar"] [role="radiogroup"] > label:has(input:checked)::before {
+    content: '▸';
+    margin-right: 6px;
+    color: var(--amber);
+}
+
+/* 侧边栏底部 */
+.side-footer {
+    position: fixed;
+    bottom: 1.2rem;
+    left: 0;
+    width: 240px;
+    padding: 0 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--fg-3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-top: 1px solid var(--line);
+    padding-top: 1rem;
+}
+.side-footer span { color: var(--amber); }
+
+/* ========== 页面标题（顶栏） ========== */
+.page-hero {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line-2);
+    padding-bottom: 1.1rem;
+    margin-bottom: 1.6rem;
+    position: relative;
+}
+.page-hero::after {
+    content: '';
+    position: absolute;
+    left: 0; bottom: -1px;
+    width: 60px; height: 2px;
+    background: var(--amber);
+    box-shadow: 0 0 12px rgba(255,184,0,0.7);
+}
+.page-hero h1 {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.85rem;
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    color: var(--fg);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.page-hero h1::before {
+    content: '◆';
+    color: var(--amber);
+    font-size: 0.85rem;
+    text-shadow: 0 0 12px rgba(255,184,0,0.9);
+}
+.page-hero .hero-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--fg-3);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.page-hero .hero-meta::before {
+    content: '●';
+    color: var(--green);
+    font-size: 0.55rem;
+    text-shadow: 0 0 8px var(--green);
+    animation: blink 2s ease-in-out infinite;
+}
+
+/* ========== 普通 h2/h3 ========== */
+h2, h3 {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--fg);
+    font-weight: 600;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin: 2rem 0 1rem 0;
+    padding: 0 0 0.6rem 0;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+h2::before, h3::before {
+    content: '';
+    width: 3px;
+    height: 12px;
+    background: var(--amber);
+    box-shadow: 0 0 8px rgba(255,184,0,0.6);
+}
+
+/* ========== 指标卡（核心重设计） ========== */
+div[data-testid="stMetric"] {
+    position: relative;
+    background: linear-gradient(180deg, var(--surface) 0%, #0a0b0e 100%);
+    border: 1px solid var(--line-2);
+    border-radius: 0;
+    padding: 16px 18px 14px 18px;
+    overflow: hidden;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+/* 顶部 1px 渐变描边 */
+div[data-testid="stMetric"]::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,184,0,0.55), transparent);
+}
+
+div[data-testid="stMetric"]:hover {
+    border-color: var(--line-3);
+    box-shadow: 0 0 0 1px rgba(255,184,0,0.12), 0 20px 40px -24px rgba(255,184,0,0.35);
+}
+
+div[data-testid="stMetricLabel"] {
+    color: var(--fg-3) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.62rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
+div[data-testid="stMetricLabel"] p {
+    font-size: 0.62rem !important;
+    font-family: 'JetBrains Mono', monospace !important;
+}
+
+div[data-testid="stMetricValue"] {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--fg);
+    letter-spacing: -0.02em;
+    margin-top: 8px;
+    font-variant-numeric: tabular-nums;
+}
+
+div[data-testid="stMetricDelta"] {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+}
+
+/* 第一列（主指标）加大 */
+[data-testid="column"]:first-of-type div[data-testid="stMetric"] {
+    padding: 26px 24px 22px 24px;
+    background: linear-gradient(180deg, #101115 0%, #0a0b0e 100%);
+}
+[data-testid="column"]:first-of-type div[data-testid="stMetricValue"] {
+    font-size: 2.4rem;
+    color: #ffffff;
+    text-shadow: 0 0 24px rgba(255,184,0,0.15);
+}
+[data-testid="column"]:first-of-type div[data-testid="stMetric"]::before {
+    background: linear-gradient(90deg, rgba(255,184,0,0.9), transparent 60%);
+    height: 2px;
+}
+[data-testid="column"]:first-of-type div[data-testid="stMetric"]::after {
+    content: '';
+    position: absolute;
+    right: 14px; top: 14px;
+    width: 8px; height: 8px;
+    border-top: 1px solid var(--amber);
+    border-right: 1px solid var(--amber);
+    opacity: 0.7;
+}
+
+/* ========== 按钮 ========== */
+.stButton > button,
+.stDownloadButton > button {
+    background: var(--surface-2);
+    border: 1px solid var(--line-3);
+    border-radius: 0;
+    color: var(--fg);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.65rem 1.3rem;
+    transition: all .18s ease;
+    position: relative;
+}
+
+.stButton > button:hover,
+.stDownloadButton > button:hover {
+    background: var(--amber-dim);
+    border-color: var(--amber);
+    color: var(--amber);
+    box-shadow: 0 0 0 1px rgba(255,184,0,0.2), 0 8px 24px -12px rgba(255,184,0,0.5);
+}
+
+.stButton > button[kind="primary"],
+.stButton > button[data-testid="baseButton-primary"] {
+    background: var(--amber);
+    border: 1px solid var(--amber);
+    color: #0a0b0e;
+    font-weight: 700;
+    box-shadow: 0 0 0 1px rgba(255,184,0,0.3), 0 10px 30px -12px rgba(255,184,0,0.7);
+}
+
+.stButton > button[kind="primary"]:hover,
+.stButton > button[data-testid="baseButton-primary"]:hover {
+    background: #ffc933;
+    border-color: #ffc933;
+    color: #0a0b0e;
+    box-shadow: 0 0 0 1px rgba(255,201,51,0.5), 0 14px 40px -12px rgba(255,201,51,0.9);
+}
+
+/* ========== 输入控件 ========== */
+.stTextInput > div > div > input,
+.stNumberInput > div > div > input,
+.stDateInput > div > div > input {
+    background: var(--bg);
+    border: 1px solid var(--line-2);
+    border-radius: 0;
+    color: var(--fg);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    padding: 9px 12px;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+.stTextInput > div > div > input:focus,
+.stNumberInput > div > div > input:focus,
+.stDateInput > div > div > input:focus {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 1px var(--amber), 0 0 20px -4px rgba(255,184,0,0.4);
+    outline: none;
+}
+
+.stTextInput label,
+.stNumberInput label,
+.stDateInput label,
+.stSelectbox label,
+.stMultiSelect label {
+    color: var(--fg-3) !important;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.stSelectbox > div > div > div,
+.stMultiSelect > div > div > div {
+    background: var(--bg);
+    border: 1px solid var(--line-2);
+    border-radius: 0;
+    color: var(--fg);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    transition: border-color .2s ease;
+}
+
+.stSelectbox > div > div > div:hover,
+.stMultiSelect > div > div > div:hover {
+    border-color: var(--line-3);
+}
+
+.stMultiSelect [data-baseweb="tag"] {
+    background: var(--amber-dim) !important;
+    border: 1px solid rgba(255,184,0,0.4) !important;
+    border-radius: 0 !important;
+    color: var(--amber) !important;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+}
+
+/* ========== 数据表格 ========== */
+[data-testid="stDataFrame"],
+[data-testid="stDataEditor"] {
+    border-radius: 0;
+    overflow: hidden;
+    border: 1px solid var(--line-2);
+    background: var(--surface);
+}
+
+[data-testid="stDataFrame"] *,
+[data-testid="stDataEditor"] * {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-variant-numeric: tabular-nums;
+}
+
+.stDataFrame {
+    border-radius: 0;
+    overflow: hidden;
+    border: 1px solid var(--line-2);
+}
+
+.stDataFrame table { background: var(--surface); }
+
+.stDataFrame th {
+    background: var(--surface-2);
+    color: var(--amber);
+    font-weight: 600;
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    border-bottom: 1px solid rgba(255,184,0,0.2);
+    padding: 12px 14px;
+}
+
+.stDataFrame td {
+    color: var(--fg-2);
+    border-bottom: 1px solid var(--line);
+    padding: 10px 14px;
+    font-size: 0.8rem;
+}
+
+.stDataFrame tr:hover td {
+    background: rgba(255,184,0,0.04);
+    color: var(--fg);
+}
+
+/* ========== 提示条 ========== */
+[data-baseweb="notification"] {
+    border-radius: 0 !important;
+    border-left-width: 2px !important;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.84rem;
+}
+
+.stInfo, .stAlert.stInfo {
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-left: 2px solid var(--amber);
+    border-radius: 0;
+    color: var(--fg-2);
+    padding: 13px 17px;
+}
+.stSuccess {
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-left: 2px solid var(--green);
+    border-radius: 0;
+    color: #a7f3d0;
+    padding: 13px 17px;
+}
+.stWarning {
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-left: 2px solid #facc15;
+    border-radius: 0;
+    color: #fde68a;
+    padding: 13px 17px;
+}
+.stError {
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-left: 2px solid var(--red);
+    border-radius: 0;
+    color: #fecaca;
+    padding: 13px 17px;
+}
+
+/* ========== 其他 ========== */
+.stCaption,
+[data-testid="stCaptionContainer"] {
+    color: var(--fg-3);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+}
+.stCaption::before {
+    content: '// ';
+    color: var(--amber);
+    opacity: 0.7;
+}
+
+hr, .stDivider {
+    border-color: var(--line) !important;
+    margin: 1.8rem 0 !important;
+}
+
+.js-plotly-plot .plotly .modebar { opacity: 0.15; transition: opacity .2s; }
+.js-plotly-plot:hover .plotly .modebar { opacity: 0.8; }
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: rgba(255,184,0,0.15);
+    border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255,184,0,0.35); }
+
+/* 密码框 */
+.stTextInput > div > div > input[type="password"] {
+    letter-spacing: 0.35em;
+    font-size: 1rem;
+}
+
+/* Plotly 图表外容器 */
+[data-testid="stPlotlyChart"] {
+    border: 1px solid var(--line-2);
+    background: var(--surface);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -56,11 +575,10 @@ ACCOUNT_TYPES = {"stock": "股票账户", "option": "期权账户", "futures": "
 CASHFLOW_CATEGORIES = ["工资转入", "新增投入", "消费贷提款", "贷款提款", "提现消费", "还贷本金", "还贷利息", "借出款项", "收回借款", "收到利息", "其他"]
 INDEX_MAP = {"沪深300": "510300.SS", "中证500": "510500.SS", "科创50": "588000.SS", "创业板指": "159915.SZ", "纳斯达克100": "^NDX", "标普500": "^GSPC"}
 TIME_RANGES = ["近一月", "近三月", "今年以来", "近一年", "近三年", "开户以来", "自定义"]
-CHART_BG = "rgba(22,22,32,0.6)"
-CHART_GRID = "rgba(148,163,184,0.1)"
-CHART_TEXT = "#cbd5e1"
-CHART_GRID = "#30363d"
-CHART_TEXT = "#c9d1d9"
+
+CHART_BG = "rgba(14,15,18,0.5)"
+CHART_GRID = "rgba(255,255,255,0.04)"
+CHART_TEXT = "#9ca3af"
 
 @st.cache_resource
 def get_supabase() -> Client:
@@ -164,14 +682,23 @@ def fmt_pct(val):
 def chart_layout(fig, height=350):
     fig.update_layout(
         paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
-        font=dict(color=CHART_TEXT, size=12),
-        xaxis=dict(gridcolor=CHART_GRID, zerolinecolor=CHART_GRID),
-        yaxis=dict(gridcolor=CHART_GRID, zerolinecolor=CHART_GRID),
-        margin=dict(t=15, b=15, l=15, r=15),
+        font=dict(color=CHART_TEXT, size=11, family="JetBrains Mono, monospace"),
+        xaxis=dict(gridcolor=CHART_GRID, zerolinecolor=CHART_GRID, linecolor=CHART_GRID),
+        yaxis=dict(gridcolor=CHART_GRID, zerolinecolor=CHART_GRID, linecolor=CHART_GRID),
+        margin=dict(t=20, b=15, l=15, r=15),
         height=height,
-        legend=dict(bgcolor=CHART_BG, bordercolor=CHART_GRID, borderwidth=1),
+        legend=dict(bgcolor="rgba(14,15,18,0.9)", bordercolor=CHART_GRID, borderwidth=1),
     )
     return fig
+
+def page_header(title: str, subtitle: str = ""):
+    meta = subtitle if subtitle else datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+    st.markdown(f"""
+    <div class="page-hero">
+        <h1>{title}</h1>
+        <div class="hero-meta">{meta}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 def check_password():
     if "password_ok" not in st.session_state:
@@ -192,13 +719,32 @@ def check_password():
 if not check_password():
     st.stop()
 
-st.markdown("# 📊 资产管理看板")
-st.caption(f"最后刷新：{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}")
+# ================= 侧边栏导航 =================
+with st.sidebar:
+    st.markdown("""
+    <div class="side-brand">
+        <div class="side-brand-title">FIN·TERMINAL</div>
+        <div class="side-brand-sub">v1.0 / asset.board</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-t1, t2, t3, t4, t5, t6 = st.tabs(["📊 总览", "💰 每日更新", "📈 投资分析", "💸 资金流水", "📋 持仓明细", "⚙️ 账户管理"])
+    nav = st.radio(
+        "导航",
+        ["总览", "每日更新", "投资分析", "资金流水", "持仓明细", "账户管理"],
+        label_visibility="collapsed",
+        key="sidebar_nav"
+    )
 
-# ===== Tab 1: 总览 =====
-with t1:
+    st.markdown(f"""
+    <div class="side-footer">
+        SYSTEM <span>ONLINE</span><br>
+        {datetime.datetime.now().strftime('%Y.%m.%d')}
+    </div>
+    """, unsafe_allow_html=True)
+
+# ================= 路由 =================
+if nav == "总览":
+    page_header("总览 / OVERVIEW", "PORTFOLIO · SNAPSHOT")
     accounts = get_all_accounts()
     net_asset = get_account_total(accounts)
     nav_df = get_nav_history()
@@ -209,11 +755,14 @@ with t1:
     else:
         total_return, total_profit = 0, 0
     today_change = nav_df.iloc[-1]["total_asset"] - nav_df.iloc[-2]["total_asset"] if len(nav_df) >= 2 else 0
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("净资产", fmt_money(net_asset), f"{fmt_money(today_change)} 今日")
+
+    # 主指标大 + 辅助小
+    c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
+    c1.metric("净资产 / NET ASSET", fmt_money(net_asset), f"{fmt_money(today_change)} 今日")
     c2.metric("累计收益率", fmt_pct(total_return))
     c3.metric("累计收益额", fmt_money(total_profit))
     c4.metric("账户数量", f"{len(accounts)} 个")
+
     st.markdown("### 资产分布")
     if accounts:
         dist_data = []
@@ -226,9 +775,13 @@ with t1:
         with col_pie:
             asset_df = dist_df[dist_df["方向"] == "资产"]
             if not asset_df.empty:
-                fig = px.pie(asset_df, values="金额", names="账户", color_discrete_sequence=px.colors.qualitative.Set3, hole=0.4)
+                fig = px.pie(asset_df, values="金额", names="账户",
+                             color_discrete_sequence=["#ffb800", "#ff9e00", "#00d26a", "#38bdf8", "#a78bfa", "#f0abfc"],
+                             hole=0.55)
                 chart_layout(fig)
-                fig.update_traces(textposition='inside', textinfo='percent+label')
+                fig.update_traces(textposition='inside', textinfo='percent+label',
+                                  marker=dict(line=dict(color="#08090b", width=2)),
+                                  textfont=dict(family="JetBrains Mono, monospace", size=11))
                 st.plotly_chart(fig, use_container_width=True)
         with col_tbl:
             d = dist_df.copy()
@@ -236,17 +789,22 @@ with t1:
             st.dataframe(d, use_container_width=True, hide_index=True)
     else:
         st.info("暂无账户数据，请先在「账户管理」中添加账户")
+
     if not nav_df.empty:
         st.markdown("### 净资产走势")
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=nav_df["record_date"], y=nav_df["total_asset"], fill='tozeroy', fillcolor='rgba(129,140,248,0.15)', line=dict(color="#818cf8", width=2), mode='lines+markers', name='净资产', hovertemplate='%{x|%Y-%m-%d}<br>净资产: ¥%{y:,.0f}<extra></extra>'))
+        fig.add_trace(go.Scatter(x=nav_df["record_date"], y=nav_df["total_asset"],
+                                 fill='tozeroy', fillcolor='rgba(255,184,0,0.08)',
+                                 line=dict(color="#ffb800", width=2), mode='lines+markers',
+                                 marker=dict(size=5, color="#ffb800"),
+                                 name='净资产',
+                                 hovertemplate='%{x|%Y-%m-%d}<br>净资产: ¥%{y:,.0f}<extra></extra>'))
         chart_layout(fig, 320)
         fig.update_yaxes(tickprefix='¥')
         st.plotly_chart(fig, use_container_width=True)
 
-# ===== Tab 2: 每日更新 =====
-with t2:
-    st.markdown("### 每日资产更新")
+elif nav == "每日更新":
+    page_header("每日更新 / DAILY LOG", "INPUT · SNAPSHOT")
     accounts = get_all_accounts()
     record_date = st.date_input("记录日期", value=datetime.date.today())
     if not accounts:
@@ -255,9 +813,12 @@ with t2:
         st.caption("修改各账户余额，带息账户的利息系统自动计算。有出入金时在下方填写。")
         edit_data = [{"id": a["id"], "账户名称": a["account_name"], "类型": ACCOUNT_TYPES.get(a["account_type"], a["account_type"]), "本金余额": a["principal"], "累计利息": a["accrued_interest"], "利率(%)": a["interest_rate"]} for a in accounts]
         edited = st.data_editor(pd.DataFrame(edit_data), use_container_width=True, hide_index=True, column_config={
-            "id": st.column_config.NumberColumn(disabled=True), "账户名称": st.column_config.TextColumn(disabled=True),
-            "类型": st.column_config.TextColumn(disabled=True), "本金余额": st.column_config.NumberColumn(format="¥%.2f"),
-            "累计利息": st.column_config.NumberColumn(format="¥%.2f", disabled=True), "利率(%)": st.column_config.NumberColumn(disabled=True),
+            "id": st.column_config.NumberColumn(disabled=True),
+            "账户名称": st.column_config.TextColumn(disabled=True),
+            "类型": st.column_config.TextColumn(disabled=True),
+            "本金余额": st.column_config.NumberColumn(format="¥%.2f"),
+            "累计利息": st.column_config.NumberColumn(format="¥%.2f", disabled=True),
+            "利率(%)": st.column_config.NumberColumn(disabled=True),
         }, key="daily_edit")
         st.markdown("#### 当日出入金（有变动才填）")
         cf1, cf2, cf3, cf4 = st.columns([2, 1, 2, 1])
@@ -299,9 +860,8 @@ with t2:
             st.success(f"✅ 已保存！净资产：¥{total:,.2f}，净值：{nav:.4f}，份额：{shares:.2f}")
             st.rerun()
 
-# ===== Tab 3: 投资分析 =====
-with t3:
-    st.markdown("### 净值走势与指数对比")
+elif nav == "投资分析":
+    page_header("投资分析 / ANALYTICS", "PERFORMANCE · BENCHMARK")
     nav_df = get_nav_history()
     if nav_df.empty:
         st.info("暂无净值数据，请先在「每日更新」中记录")
@@ -343,31 +903,40 @@ with t3:
             m5.metric("期末净资产", fmt_money(filtered.iloc[-1]["total_asset"]))
             filtered["my_return"] = (filtered["nav"] / first_nav - 1) * 100
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["my_return"], mode='lines+markers', name='我的组合', line=dict(color="#818cf8", width=3), marker=dict(size=6), hovertemplate='%{x|%Y-%m-%d}<br>收益率: %{y:.2f}%<extra></extra>'))
-            idx_colors = ["#f85149", "#d29922", "#a371f7", "#3fb950", "#58a6ff", "#f778ba"]
+            fig.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["my_return"], mode='lines+markers',
+                                     name='我的组合', line=dict(color="#ffb800", width=3),
+                                     marker=dict(size=6, color="#ffb800"),
+                                     hovertemplate='%{x|%Y-%m-%d}<br>收益率: %{y:.2f}%<extra></extra>'))
+            idx_colors = ["#ff4757", "#facc15", "#a78bfa", "#00d26a", "#38bdf8", "#f0abfc"]
             for i, idx_name in enumerate(selected_indices):
                 idx_df = get_index_data(idx_name, start_date, end_date + datetime.timedelta(days=1))
                 if not idx_df.empty:
                     idx_df = idx_df[(idx_df["date"].dt.date >= start_date) & (idx_df["date"].dt.date <= end_date)]
                     if not idx_df.empty:
                         idx_df["idx_return"] = (idx_df["close"] / idx_df.iloc[0]["close"] - 1) * 100
-                        fig.add_trace(go.Scatter(x=idx_df["date"], y=idx_df["idx_return"], mode='lines', name=idx_name, line=dict(color=idx_colors[i % len(idx_colors)], width=1.5, dash='dash'), opacity=0.85))
+                        fig.add_trace(go.Scatter(x=idx_df["date"], y=idx_df["idx_return"], mode='lines',
+                                                 name=idx_name,
+                                                 line=dict(color=idx_colors[i % len(idx_colors)], width=1.5, dash='dot'),
+                                                 opacity=0.85))
             chart_layout(fig, 380)
             fig.update_yaxes(ticksuffix='%', title='收益率 (%)')
             fig.update_xaxes(title='日期')
-            fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor=CHART_BG), hovermode='x unified')
-            fig.add_hline(y=0, line_dash="dot", line_color="rgba(148,163,184,0.4)", line_width=1)
+            fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+                                          bgcolor="rgba(14,15,18,0.9)"), hovermode='x unified')
+            fig.add_hline(y=0, line_dash="dot", line_color="rgba(255,255,255,0.12)", line_width=1)
             st.plotly_chart(fig, use_container_width=True)
             st.markdown("#### 净资产走势")
             fig2 = go.Figure()
-            fig2.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["total_asset"], fill='tozeroy', fillcolor='rgba(129,140,248,0.12)', line=dict(color="#818cf8", width=2), mode='lines+markers', name='净资产'))
+            fig2.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["total_asset"],
+                                      fill='tozeroy', fillcolor='rgba(255,184,0,0.08)',
+                                      line=dict(color="#ffb800", width=2), mode='lines+markers',
+                                      marker=dict(size=5, color="#ffb800"), name='净资产'))
             chart_layout(fig2, 280)
             fig2.update_yaxes(tickprefix='¥')
             st.plotly_chart(fig2, use_container_width=True)
 
-# ===== Tab 4: 资金流水 =====
-with t4:
-    st.markdown("### 出入金流水")
+elif nav == "资金流水":
+    page_header("资金流水 / CASHFLOW", "INFLOW · OUTFLOW")
     cf_data = sb.table(TABLE_CASHFLOW).select("*").order("record_date", desc=True).execute().data
     if not cf_data:
         st.info("暂无出入金记录")
@@ -385,9 +954,12 @@ with t4:
         display_df = cf_df[["id", "record_date", "category", "方向", "金额显示", "note"]].rename(columns={"record_date": "日期", "category": "类别", "note": "备注"})
         display_df["日期"] = display_df["日期"].dt.strftime("%Y-%m-%d")
         edited_cf = st.data_editor(display_df, use_container_width=True, hide_index=True, column_config={
-            "id": st.column_config.NumberColumn(disabled=True), "日期": st.column_config.TextColumn(),
-            "类别": st.column_config.SelectboxColumn(options=CASHFLOW_CATEGORIES), "方向": st.column_config.TextColumn(disabled=True),
-            "金额显示": st.column_config.TextColumn(disabled=True), "备注": st.column_config.TextColumn(),
+            "id": st.column_config.NumberColumn(disabled=True),
+            "日期": st.column_config.TextColumn(),
+            "类别": st.column_config.SelectboxColumn(options=CASHFLOW_CATEGORIES),
+            "方向": st.column_config.TextColumn(disabled=True),
+            "金额显示": st.column_config.TextColumn(disabled=True),
+            "备注": st.column_config.TextColumn(),
         }, key="cf_editor")
         if st.button("💾 保存修改"):
             for _, row in edited_cf.iterrows():
@@ -400,9 +972,8 @@ with t4:
             st.success(f"已删除ID={del_id}")
             st.rerun()
 
-# ===== Tab 5: 持仓明细 =====
-with t5:
-    st.markdown("### 持仓明细（偶尔更新，不影响净值）")
+elif nav == "持仓明细":
+    page_header("持仓明细 / HOLDINGS", "POSITIONS · P&L")
     assets_data = sb.table(TABLE_ASSETS).select("*").order("id").execute().data
     if assets_data:
         assets_df = pd.DataFrame(assets_data)
@@ -436,9 +1007,8 @@ with t5:
             sb.table(TABLE_ASSETS).insert({"asset_type": "股票", "asset_name": "示例", "principal": 0, "market_value": 0, "cost_pnl": 0}).execute()
             st.rerun()
 
-# ===== Tab 6: 账户管理 =====
-with t6:
-    st.markdown("### 账户管理")
+elif nav == "账户管理":
+    page_header("账户管理 / ACCOUNTS", "CONFIG · BACKUP")
     accounts = get_all_accounts(active_only=False)
     if accounts:
         edit_acc = st.data_editor(pd.DataFrame(accounts), use_container_width=True, hide_index=True, column_config={
@@ -466,6 +1036,7 @@ with t6:
             st.rerun()
     else:
         st.info("暂无账户")
+
     st.markdown("#### 快速添加账户")
     qc1, qc2, qc3, qc4 = st.columns(4)
     with qc1: new_name = st.text_input("账户名称", key="new_acc_name")
@@ -476,6 +1047,7 @@ with t6:
         sb.table(TABLE_ACCOUNTS).insert({"account_name": new_name, "account_type": new_type, "direction": new_dir, "interest_rate": new_rate, "principal": 0, "accrued_interest": 0, "last_interest_date": datetime.date.today().isoformat(), "sort_order": len(accounts) + 1 if accounts else 1}).execute()
         st.success(f"已添加账户：{new_name}")
         st.rerun()
+
     st.markdown("### 📦 数据备份导出")
     bc1, bc2, bc3 = st.columns(3)
     with bc1:
