@@ -1,11 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 个人资产负债统一管理看板 — Streamlit 单页应用
-- 基金净值法核算收益率（方式A：先算净值再处理出入金）
-- 带息账户自动单利计息（消费贷/借出款）
-- 多账户统一管理，每日批量更新
-- 指数对比、时间维度筛选
-- 现代UI设计
 """
 import os
 import datetime
@@ -20,26 +15,36 @@ st.set_page_config(page_title="资产管理看板", page_icon="📊", layout="wi
 
 st.markdown("""
 <style>
-.stApp {background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%); color: #e8e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;}
+.stApp {background: #0d1117; color: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;}
 #MainMenu, footer, header {visibility: hidden;}
-h1 {background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 800; font-size: 2rem;}
-div[data-testid="stMetric"] {background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 16px 20px; backdrop-filter: blur(10px); transition: transform 0.2s, box-shadow 0.2s;}
-div[data-testid="stMetric"]:hover {transform: translateY(-2px); box-shadow: 0 8px 32px rgba(102,126,234,0.2);}
-div[data-testid="stMetric"] label {color: #9ca3af !important; font-size: 0.85rem;}
-div[data-testid="stMetricValue"] {font-size: 1.6rem; font-weight: 700; color: #fff;}
-.stTabs [data-baseweb="tab-list"] {gap: 8px; background: rgba(255,255,255,0.04); padding: 6px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);}
-.stTabs [data-baseweb="tab"] {background: transparent; border-radius: 10px; padding: 10px 20px; color: #9ca3af; font-weight: 600; font-size: 0.95rem; transition: all 0.2s;}
-.stTabs [data-baseweb="tab"]:hover {color: #fff; background: rgba(255,255,255,0.06);}
-.stTabs [aria-selected="true"] {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; color: #fff !important; box-shadow: 0 4px 15px rgba(102,126,234,0.4);}
-.stButton > button {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 10px; color: #fff; font-weight: 600; padding: 0.5rem 1.5rem; transition: all 0.2s; box-shadow: 0 4px 15px rgba(102,126,234,0.3);}
-.stButton > button:hover {transform: translateY(-1px); box-shadow: 0 6px 20px rgba(102,126,234,0.5); color: #fff;}
-.stTextInput > div > div > input, .stNumberInput > div > div > input, .stDateInput > div > div > input {background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; color: #fff;}
-.stSelectbox > div > div > div, .stMultiSelect > div > div > div {background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; color: #fff;}
-.stDataFrame {border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);}
-h2, h3 {color: #e8e8f0; font-weight: 700; border-left: 4px solid #667eea; padding-left: 12px; margin-top: 1.5rem;}
-.stInfo {background: rgba(102,126,234,0.15); border: 1px solid rgba(102,126,234,0.3); border-radius: 10px; color: #c7d2fe;}
-.stSuccess {background: rgba(52,211,153,0.15); border: 1px solid rgba(52,211,153,0.3); border-radius: 10px; color: #6ee7b7;}
-.stWarning {background: rgba(251,191,36,0.15); border: 1px solid rgba(251,191,36,0.3); border-radius: 10px; color: #fcd34d;}
+h1 {color: #f0f6fc; font-weight: 700; font-size: 1.8rem; margin-bottom: 0.3rem;}
+h2, h3 {color: #f0f6fc; font-weight: 600; border-left: 3px solid #3b82f6; padding-left: 10px; margin-top: 1rem; margin-bottom: 0.6rem;}
+div[data-testid="stMetric"] {background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 16px;}
+div[data-testid="stMetric"] label {color: #8b949e !important; font-size: 0.78rem; font-weight: 500;}
+div[data-testid="stMetricValue"] {font-size: 1.4rem; font-weight: 700; color: #f0f6fc;}
+div[data-testid="stMetricDelta"] {font-size: 0.8rem; font-weight: 600;}
+.stTabs [data-baseweb="tab-list"] {gap: 2px; background: #161b22; padding: 3px; border-radius: 6px; border: 1px solid #30363d; margin-bottom: 0.8rem;}
+.stTabs [data-baseweb="tab"] {background: transparent; border-radius: 5px; padding: 7px 14px; color: #8b949e; font-weight: 500; font-size: 0.88rem; transition: all 0.15s;}
+.stTabs [data-baseweb="tab"]:hover {color: #f0f6fc; background: #21262d;}
+.stTabs [aria-selected="true"] {background: #238636 !important; color: #fff !important; font-weight: 600;}
+.stButton > button {background: #238636; border: 1px solid #2ea043; border-radius: 6px; color: #fff; font-weight: 600; font-size: 0.88rem; padding: 0.35rem 1.1rem; transition: all 0.15s;}
+.stButton > button:hover {background: #2ea043; border-color: #3fb950; color: #fff;}
+.stTextInput > div > div > input, .stNumberInput > div > div > input, .stDateInput > div > div > input {background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #f0f6fc; font-size: 0.88rem; padding: 5px 10px;}
+.stTextInput > div > div > input:focus, .stNumberInput > div > div > input:focus, .stDateInput > div > div > input:focus {border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.25);}
+.stTextInput label, .stNumberInput label, .stDateInput label, .stSelectbox label, .stMultiSelect label {color: #c9d1d9 !important; font-weight: 500; font-size: 0.82rem;}
+.stSelectbox > div > div > div, .stMultiSelect > div > div > div {background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #f0f6fc;}
+.stDataFrame {border-radius: 6px; overflow: hidden; border: 1px solid #30363d;}
+.stDataFrame table {background: #161b22;}
+.stDataFrame th {background: #21262d; color: #c9d1d9; font-weight: 600; border-bottom: 2px solid #30363d; padding: 7px 10px; font-size: 0.82rem;}
+.stDataFrame td {color: #e6edf3; border-bottom: 1px solid #21262d; padding: 5px 10px; font-size: 0.85rem;}
+.stDataFrame tr:hover td {background: #1c2128;}
+.stInfo {background: #1c2128; border: 1px solid #3b82f6; border-left: 4px solid #3b82f6; border-radius: 6px; color: #c9d1d9; padding: 10px 14px; font-size: 0.88rem;}
+.stSuccess {background: #1c2128; border: 1px solid #238636; border-left: 4px solid #238636; border-radius: 6px; color: #c9d1d9; padding: 10px 14px; font-size: 0.88rem;}
+.stWarning {background: #1c2128; border: 1px solid #d29922; border-left: 4px solid #d29922; border-radius: 6px; color: #c9d1d9; padding: 10px 14px; font-size: 0.88rem;}
+.stError {background: #1c2128; border: 1px solid #f85149; border-left: 4px solid #f85149; border-radius: 6px; color: #c9d1d9; padding: 10px 14px; font-size: 0.88rem;}
+.stDivider {border-color: #30363d !important; margin: 0.8rem 0;}
+.stDataEditor {border-radius: 6px; overflow: hidden; border: 1px solid #30363d;}
+.stCaption {color: #8b949e; font-size: 0.8rem;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -52,7 +57,9 @@ ACCOUNT_TYPES = {"stock": "股票账户", "option": "期权账户", "futures": "
 CASHFLOW_CATEGORIES = ["工资转入", "新增投入", "消费贷提款", "贷款提款", "提现消费", "还贷本金", "还贷利息", "借出款项", "收回借款", "收到利息", "其他"]
 INDEX_MAP = {"沪深300": "510300.SS", "中证500": "510500.SS", "科创50": "588000.SS", "创业板指": "159915.SZ", "纳斯达克100": "^NDX", "标普500": "^GSPC"}
 TIME_RANGES = ["近一月", "近三月", "今年以来", "近一年", "近三年", "开户以来", "自定义"]
-COLORS = {"primary": "#667eea", "chart_bg": "rgba(15,12,41,0.8)"}
+CHART_BG = "#161b22"
+CHART_GRID = "#30363d"
+CHART_TEXT = "#c9d1d9"
 
 @st.cache_resource
 def get_supabase() -> Client:
@@ -153,6 +160,18 @@ def fmt_money(val):
 def fmt_pct(val):
     return f"{val:+.2f}%" if val is not None else "0.00%"
 
+def chart_layout(fig, height=350):
+    fig.update_layout(
+        paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+        font=dict(color=CHART_TEXT, size=12),
+        xaxis=dict(gridcolor=CHART_GRID, zerolinecolor=CHART_GRID),
+        yaxis=dict(gridcolor=CHART_GRID, zerolinecolor=CHART_GRID),
+        margin=dict(t=15, b=15, l=15, r=15),
+        height=height,
+        legend=dict(bgcolor=CHART_BG, bordercolor=CHART_GRID, borderwidth=1),
+    )
+    return fig
+
 def check_password():
     if "password_ok" not in st.session_state:
         st.session_state.password_ok = False
@@ -207,7 +226,7 @@ with t1:
             asset_df = dist_df[dist_df["方向"] == "资产"]
             if not asset_df.empty:
                 fig = px.pie(asset_df, values="金额", names="账户", color_discrete_sequence=px.colors.qualitative.Set3, hole=0.4)
-                fig.update_layout(paper_bgcolor=COLORS["chart_bg"], plot_bgcolor=COLORS["chart_bg"], font=dict(color="#e8e8f0"), margin=dict(t=20, b=20, l=20, r=20))
+                chart_layout(fig)
                 fig.update_traces(textposition='inside', textinfo='percent+label')
                 st.plotly_chart(fig, use_container_width=True)
         with col_tbl:
@@ -219,8 +238,9 @@ with t1:
     if not nav_df.empty:
         st.markdown("### 净资产走势")
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=nav_df["record_date"], y=nav_df["total_asset"], fill='tozeroy', fillcolor='rgba(102,126,234,0.2)', line=dict(color=COLORS["primary"], width=2), mode='lines+markers', name='净资产', hovertemplate='%{x|%Y-%m-%d}<br>净资产: ¥%{y:,.0f}<extra></extra>'))
-        fig.update_layout(paper_bgcolor=COLORS["chart_bg"], plot_bgcolor=COLORS["chart_bg"], font=dict(color="#e8e8f0"), xaxis=dict(gridcolor='rgba(255,255,255,0.05)'), yaxis=dict(gridcolor='rgba(255,255,255,0.05)', tickprefix='¥'), margin=dict(t=20, b=20, l=20, r=20), height=350)
+        fig.add_trace(go.Scatter(x=nav_df["record_date"], y=nav_df["total_asset"], fill='tozeroy', fillcolor='rgba(59,130,246,0.2)', line=dict(color="#3b82f6", width=2), mode='lines+markers', name='净资产', hovertemplate='%{x|%Y-%m-%d}<br>净资产: ¥%{y:,.0f}<extra></extra>'))
+        chart_layout(fig, 320)
+        fig.update_yaxes(tickprefix='¥')
         st.plotly_chart(fig, use_container_width=True)
 
 # ===== Tab 2: 每日更新 =====
@@ -322,21 +342,26 @@ with t3:
             m5.metric("期末净资产", fmt_money(filtered.iloc[-1]["total_asset"]))
             filtered["my_return"] = (filtered["nav"] / first_nav - 1) * 100
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["my_return"], mode='lines+markers', name='我的组合', line=dict(color=COLORS["primary"], width=3), marker=dict(size=6), hovertemplate='%{x|%Y-%m-%d}<br>收益率: %{y:.2f}%<extra></extra>'))
-            for idx_name in selected_indices:
+            fig.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["my_return"], mode='lines+markers', name='我的组合', line=dict(color="#3b82f6", width=3), marker=dict(size=6), hovertemplate='%{x|%Y-%m-%d}<br>收益率: %{y:.2f}%<extra></extra>'))
+            idx_colors = ["#f85149", "#d29922", "#a371f7", "#3fb950", "#58a6ff", "#f778ba"]
+            for i, idx_name in enumerate(selected_indices):
                 idx_df = get_index_data(idx_name, start_date, end_date + datetime.timedelta(days=1))
                 if not idx_df.empty:
                     idx_df = idx_df[(idx_df["date"].dt.date >= start_date) & (idx_df["date"].dt.date <= end_date)]
                     if not idx_df.empty:
                         idx_df["idx_return"] = (idx_df["close"] / idx_df.iloc[0]["close"] - 1) * 100
-                        fig.add_trace(go.Scatter(x=idx_df["date"], y=idx_df["idx_return"], mode='lines', name=idx_name, line=dict(width=1.5, dash='dash'), opacity=0.8))
-            fig.update_layout(paper_bgcolor=COLORS["chart_bg"], plot_bgcolor=COLORS["chart_bg"], font=dict(color="#e8e8f0"), xaxis=dict(gridcolor='rgba(255,255,255,0.05)', title='日期'), yaxis=dict(gridcolor='rgba(255,255,255,0.05)', title='收益率 (%)', ticksuffix='%'), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), margin=dict(t=40, b=20, l=20, r=20), height=400, hovermode='x unified')
-            fig.add_hline(y=0, line_dash="dot", line_color="rgba(255,255,255,0.3)")
+                        fig.add_trace(go.Scatter(x=idx_df["date"], y=idx_df["idx_return"], mode='lines', name=idx_name, line=dict(color=idx_colors[i % len(idx_colors)], width=1.5, dash='dash'), opacity=0.85))
+            chart_layout(fig, 380)
+            fig.update_yaxes(ticksuffix='%', title='收益率 (%)')
+            fig.update_xaxes(title='日期')
+            fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor=CHART_BG), hovermode='x unified')
+            fig.add_hline(y=0, line_dash="dot", line_color="#8b949e", line_width=1)
             st.plotly_chart(fig, use_container_width=True)
             st.markdown("#### 净资产走势")
             fig2 = go.Figure()
-            fig2.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["total_asset"], fill='tozeroy', fillcolor='rgba(102,126,234,0.15)', line=dict(color=COLORS["primary"], width=2), mode='lines+markers', name='净资产'))
-            fig2.update_layout(paper_bgcolor=COLORS["chart_bg"], plot_bgcolor=COLORS["chart_bg"], font=dict(color="#e8e8f0"), xaxis=dict(gridcolor='rgba(255,255,255,0.05)'), yaxis=dict(gridcolor='rgba(255,255,255,0.05)', tickprefix='¥'), margin=dict(t=20, b=20, l=20, r=20), height=300)
+            fig2.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["total_asset"], fill='tozeroy', fillcolor='rgba(59,130,246,0.15)', line=dict(color="#3b82f6", width=2), mode='lines+markers', name='净资产'))
+            chart_layout(fig2, 280)
+            fig2.update_yaxes(tickprefix='¥')
             st.plotly_chart(fig2, use_container_width=True)
 
 # ===== Tab 4: 资金流水 =====
