@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-投资资产看板 — Streamlit 单页应用
-功能：密码登录 / 每日净值记录 / 走势分析与指数对比 / 持仓明细 / 数据备份
-部署：Streamlit Community Cloud，环境变量在 Secrets 中配置
+个人资产负债统一管理看板 — Streamlit 单页应用
+- 基金净值法核算收益率（方式A：先算净值再处理出入金）
+- 带息账户自动单利计息（消费贷/借出款）
+- 多账户统一管理，每日批量更新
+- 指数对比、时间维度筛选
+- 现代UI设计
 """
 import os
 import datetime
@@ -13,695 +16,449 @@ import plotly.graph_objects as go
 import streamlit as st
 from supabase import create_client, Client
 
-# ============================================================
-# 页面配置（必须放在最前面）
-# ============================================================
-st.set_page_config(
-    page_title="投资资产看板",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
+st.set_page_config(page_title="资产管理看板", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
 
-# ============================================================
-# 常量
-# ============================================================
-TABLE_ASSETS = "assets"
+st.markdown("""
+<style>
+.stApp {background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%); color: #e8e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;}
+#MainMenu, footer, header {visibility: hidden;}
+h1 {background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 800; font-size: 2rem;}
+div[data-testid="stMetric"] {background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 16px 20px; backdrop-filter: blur(10px); transition: transform 0.2s, box-shadow 0.2s;}
+div[data-testid="stMetric"]:hover {transform: translateY(-2px); box-shadow: 0 8px 32px rgba(102,126,234,0.2);}
+div[data-testid="stMetric"] label {color: #9ca3af !important; font-size: 0.85rem;}
+div[data-testid="stMetricValue"] {font-size: 1.6rem; font-weight: 700; color: #fff;}
+.stTabs [data-baseweb="tab-list"] {gap: 8px; background: rgba(255,255,255,0.04); padding: 6px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);}
+.stTabs [data-baseweb="tab"] {background: transparent; border-radius: 10px; padding: 10px 20px; color: #9ca3af; font-weight: 600; font-size: 0.95rem; transition: all 0.2s;}
+.stTabs [data-baseweb="tab"]:hover {color: #fff; background: rgba(255,255,255,0.06);}
+.stTabs [aria-selected="true"] {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; color: #fff !important; box-shadow: 0 4px 15px rgba(102,126,234,0.4);}
+.stButton > button {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 10px; color: #fff; font-weight: 600; padding: 0.5rem 1.5rem; transition: all 0.2s; box-shadow: 0 4px 15px rgba(102,126,234,0.3);}
+.stButton > button:hover {transform: translateY(-1px); box-shadow: 0 6px 20px rgba(102,126,234,0.5); color: #fff;}
+.stTextInput > div > div > input, .stNumberInput > div > div > input, .stDateInput > div > div > input {background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; color: #fff;}
+.stSelectbox > div > div > div, .stMultiSelect > div > div > div {background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; color: #fff;}
+.stDataFrame {border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);}
+h2, h3 {color: #e8e8f0; font-weight: 700; border-left: 4px solid #667eea; padding-left: 12px; margin-top: 1.5rem;}
+.stInfo {background: rgba(102,126,234,0.15); border: 1px solid rgba(102,126,234,0.3); border-radius: 10px; color: #c7d2fe;}
+.stSuccess {background: rgba(52,211,153,0.15); border: 1px solid rgba(52,211,153,0.3); border-radius: 10px; color: #6ee7b7;}
+.stWarning {background: rgba(251,191,36,0.15); border: 1px solid rgba(251,191,36,0.3); border-radius: 10px; color: #fcd34d;}
+</style>
+""", unsafe_allow_html=True)
+
+TABLE_ACCOUNTS = "accounts"
 TABLE_NAV = "daily_nav"
+TABLE_CASHFLOW = "cash_flow"
+TABLE_ASSETS = "assets"
 
-ASSET_TYPES = ["股票", "ETF", "期权", "基金", "债券", "现金", "其他"]
-
-# 指数代码映射（用流动性最好的ETF跟踪对应指数，yfinance兼容性更好）
-INDEX_MAP = {
-    "沪深300":   "510300.SS",
-    "中证500":   "510500.SS",
-    "科创50":    "588000.SS",
-    "创业板指":  "159915.SZ",
-    "纳斯达克100": "^NDX",
-    "标普500":   "^GSPC",
-}
-
+ACCOUNT_TYPES = {"stock": "股票账户", "option": "期权账户", "futures": "期货账户", "fund": "基金账户", "credit": "债权（借出款）", "liability": "负债（消费贷）", "other": "其他"}
+CASHFLOW_CATEGORIES = ["工资转入", "新增投入", "消费贷提款", "贷款提款", "提现消费", "还贷本金", "还贷利息", "借出款项", "收回借款", "收到利息", "其他"]
+INDEX_MAP = {"沪深300": "510300.SS", "中证500": "510500.SS", "科创50": "588000.SS", "创业板指": "159915.SZ", "纳斯达克100": "^NDX", "标普500": "^GSPC"}
 TIME_RANGES = ["近一月", "近三月", "今年以来", "近一年", "近三年", "开户以来", "自定义"]
+COLORS = {"primary": "#667eea", "chart_bg": "rgba(15,12,41,0.8)"}
 
-# ============================================================
-# Supabase 连接（单例缓存）
-# ============================================================
 @st.cache_resource
 def get_supabase() -> Client:
     url = st.secrets.get("SUPABASE_URL") or os.environ.get("SUPABASE_URL", "")
     key = st.secrets.get("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY", "")
-    if not url or not key:
-        st.error("未配置 SUPABASE_URL / SUPABASE_KEY，请在 Streamlit Secrets 中填写。")
-        st.stop()
     return create_client(url, key)
 
+sb = get_supabase()
 
-# ============================================================
-# 建表 SQL（供用户在 Supabase SQL Editor 执行）
-# ============================================================
-SETUP_SQL = """-- 持仓表
-CREATE TABLE IF NOT EXISTS assets (
-    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    asset_type   TEXT    NOT NULL,
-    asset_name   TEXT    NOT NULL,
-    principal    NUMERIC(18,2) DEFAULT 0,
-    market_value NUMERIC(18,2) DEFAULT 0,
-    cost_pnl     NUMERIC(18,2) DEFAULT 0,
-    update_time  TIMESTAMPTZ DEFAULT NOW()
-);
-ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "anon read"   ON assets;
-CREATE POLICY "anon read"   ON assets FOR SELECT USING (true);
-DROP POLICY IF EXISTS "anon write"  ON assets;
-CREATE POLICY "anon write"  ON assets FOR INSERT WITH CHECK (true);
-DROP POLICY IF EXISTS "anon update" ON assets;
-CREATE POLICY "anon update" ON assets FOR UPDATE USING (true);
-DROP POLICY IF EXISTS "anon delete" ON assets;
-CREATE POLICY "anon delete" ON assets FOR DELETE USING (true);
+def calc_interest(principal, annual_rate, start_date, end_date):
+    if principal <= 0 or annual_rate <= 0:
+        return 0.0
+    days = (end_date - start_date).days
+    return round(principal * annual_rate / 100 * days / 365, 2) if days > 0 else 0.0
 
--- 每日净值表
-CREATE TABLE IF NOT EXISTS daily_nav (
-    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    record_date DATE    NOT NULL UNIQUE,
-    total_asset NUMERIC(18,2) NOT NULL DEFAULT 0,
-    pnl_ratio   NUMERIC(10,4) NOT NULL DEFAULT 0,
-    update_time TIMESTAMPTZ DEFAULT NOW()
-);
-ALTER TABLE daily_nav ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "nav read"   ON daily_nav;
-CREATE POLICY "nav read"   ON daily_nav FOR SELECT USING (true);
-DROP POLICY IF EXISTS "nav write"  ON daily_nav;
-CREATE POLICY "nav write"  ON daily_nav FOR INSERT WITH CHECK (true);
-DROP POLICY IF EXISTS "nav update" ON daily_nav;
-CREATE POLICY "nav update" ON daily_nav FOR UPDATE USING (true);
-DROP POLICY IF EXISTS "nav delete" ON daily_nav;
-CREATE POLICY "nav delete" ON daily_nav FOR DELETE USING (true);"""
+def update_account_interest(account_id):
+    acc = sb.table(TABLE_ACCOUNTS).select("*").eq("id", account_id).execute().data
+    if not acc:
+        return
+    acc = acc[0]
+    if acc["interest_rate"] and acc["interest_rate"] > 0 and acc["last_interest_date"]:
+        last_date = pd.to_datetime(acc["last_interest_date"]).date()
+        today = datetime.date.today()
+        if today > last_date:
+            interest = calc_interest(acc["principal"], acc["interest_rate"], last_date, today)
+            sb.table(TABLE_ACCOUNTS).update({
+                "accrued_interest": round(acc["accrued_interest"] + interest, 2),
+                "last_interest_date": today.isoformat(),
+            }).eq("id", account_id).execute()
 
+def get_all_accounts(active_only=True):
+    q = sb.table(TABLE_ACCOUNTS).select("*").order("sort_order")
+    if active_only:
+        q = q.eq("is_active", True)
+    accounts = q.execute().data
+    today = datetime.date.today()
+    for acc in accounts:
+        if acc["interest_rate"] and acc["interest_rate"] > 0 and acc["last_interest_date"]:
+            if today > pd.to_datetime(acc["last_interest_date"]).date():
+                update_account_interest(acc["id"])
+    return q.execute().data
 
-# ============================================================
-# 数据读写 —— 持仓
-# ============================================================
-def load_assets() -> pd.DataFrame:
-    sb = get_supabase()
-    try:
-        resp = sb.table(TABLE_ASSETS).select("*").order("update_time", desc=True).execute()
-    except Exception as e:
-        if _is_table_missing(e):
-            st.session_state["assets_missing"] = True
-            return _empty_assets_df()
-        raise
-    st.session_state.pop("assets_missing", None)
-    df = pd.DataFrame(resp.data)
-    if df.empty:
-        return _empty_assets_df()
-    return df[["id", "asset_type", "asset_name", "principal", "market_value", "cost_pnl", "update_time"]]
+def get_account_total(accounts):
+    total = 0.0
+    for acc in accounts:
+        val = acc["principal"] + acc["accrued_interest"]
+        if acc["direction"] == "liability":
+            total -= val
+        else:
+            total += val
+    return round(total, 2)
 
+def get_nav_history():
+    data = sb.table(TABLE_NAV).select("*").order("record_date").execute().data
+    if not data:
+        return pd.DataFrame()
+    df = pd.DataFrame(data)
+    df["record_date"] = pd.to_datetime(df["record_date"])
+    return df
 
-def _empty_assets_df() -> pd.DataFrame:
-    return pd.DataFrame(columns=["id", "asset_type", "asset_name", "principal",
-                                 "market_value", "cost_pnl", "update_time"])
+def get_cashflow_by_date(date_str):
+    data = sb.table(TABLE_CASHFLOW).select("amount").eq("record_date", date_str).execute().data
+    return sum(d["amount"] for d in data)
 
+def calc_nav_for_date(record_date, total_asset, prev_nav, prev_shares):
+    net_cf = get_cashflow_by_date(record_date)
+    nav = (total_asset - net_cf) / prev_shares if prev_shares > 0 else 1.0
+    shares = prev_shares + net_cf / nav if nav > 0 else prev_shares
+    return round(nav, 6), round(shares, 4)
 
-def upsert_assets(records: list[dict]):
-    sb = get_supabase()
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    payload = []
-    for r in records:
-        item = dict(r)
-        if item.get("id") in (None, "", pd.NA):
-            item.pop("id", None)
-        item["update_time"] = now
-        for col in ("principal", "market_value", "cost_pnl"):
-            v = item.get(col)
-            item[col] = 0.0 if v is None or v == "" else float(v)
-        payload.append(item)
-    if payload:
-        sb.table(TABLE_ASSETS).upsert(payload).execute()
-
-
-def delete_asset(asset_id: int):
-    get_supabase().table(TABLE_ASSETS).delete().eq("id", asset_id).execute()
-
-
-# ============================================================
-# 数据读写 —— 每日净值
-# ============================================================
-def load_nav() -> pd.DataFrame:
-    sb = get_supabase()
-    try:
-        resp = sb.table(TABLE_NAV).select("*").order("record_date", desc=True).execute()
-    except Exception as e:
-        if _is_table_missing(e):
-            st.session_state["nav_missing"] = True
-            return _empty_nav_df()
-        raise
-    st.session_state.pop("nav_missing", None)
-    df = pd.DataFrame(resp.data)
-    if df.empty:
-        return _empty_nav_df()
-    df["record_date"] = pd.to_datetime(df["record_date"]).dt.date
-    df["total_asset"] = pd.to_numeric(df["total_asset"], errors="coerce").fillna(0)
-    df["pnl_ratio"] = pd.to_numeric(df["pnl_ratio"], errors="coerce").fillna(0)
-    return df.sort_values("record_date").reset_index(drop=True)
-
-
-def _empty_nav_df() -> pd.DataFrame:
-    return pd.DataFrame(columns=["id", "record_date", "total_asset", "pnl_ratio", "update_time"])
-
-
-def upsert_nav(records: list[dict]):
-    sb = get_supabase()
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    payload = []
-    for r in records:
-        item = dict(r)
-        if item.get("id") in (None, "", pd.NA):
-            item.pop("id", None)
-        # record_date 转字符串
-        d = item.get("record_date")
-        if isinstance(d, (datetime.date, datetime.datetime)):
-            item["record_date"] = d.isoformat() if hasattr(d, "isoformat") else str(d)
-        elif d is not None:
-            item["record_date"] = str(d)[:10]
-        item["update_time"] = now
-        item["total_asset"] = float(item.get("total_asset", 0) or 0)
-        item["pnl_ratio"] = float(item.get("pnl_ratio", 0) or 0)
-        payload.append(item)
-    if payload:
-        sb.table(TABLE_NAV).upsert(payload).execute()
-
-
-def delete_nav(nav_id: int):
-    get_supabase().table(TABLE_NAV).delete().eq("id", nav_id).execute()
-
-
-def _is_table_missing(e: Exception) -> bool:
-    msg = str(e).lower()
-    return any(k in msg for k in ("could not find", "does not exist", "pgrst205", "relation"))
-
-
-# ============================================================
-# 指数数据（yfinance，缓存1小时）
-# ============================================================
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_index(ticker: str, start: str, end: str) -> pd.DataFrame | None:
-    """获取指数收盘价序列，返回 DataFrame[Date, Close]。失败返回 None。"""
+@st.cache_data(ttl=3600)
+def get_index_data(index_name, start_date, end_date):
     try:
         import yfinance as yf
-        df = yf.download(ticker, start=start, end=end, progress=False, auto_adjust=True)
-        if df is None or df.empty:
-            return None
-        # yfinance 新版可能返回 MultiIndex 列
+        ticker = INDEX_MAP.get(index_name)
+        if not ticker:
+            return pd.DataFrame()
+        df = yf.download(ticker, start=start_date, end=end_date, progress=False)
+        if df.empty:
+            return pd.DataFrame()
+        df = df.reset_index()
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
-        if "Close" not in df.columns:
-            return None
-        out = df[["Close"]].reset_index()
-        out.columns = ["Date", "Close"]
-        out["Date"] = pd.to_datetime(out["Date"]).dt.date
-        return out
+        df.columns = [str(c).lower() for c in df.columns]
+        close_col = "close" if "close" in df.columns else df.columns[-1]
+        date_col = "date" if "date" in df.columns else df.columns[0]
+        df = df[[date_col, close_col]].rename(columns={date_col: "date", close_col: "close"})
+        df["date"] = pd.to_datetime(df["date"])
+        return df
     except Exception:
-        return None
+        return pd.DataFrame()
 
+def fmt_money(val):
+    if val is None:
+        return "¥0"
+    return f"¥{val/10000:.2f}万" if abs(val) >= 10000 else f"¥{val:,.0f}"
 
-# ============================================================
-# 密码登录
-# ============================================================
-def login():
-    if st.session_state.get("authenticated"):
-        return
-    st.markdown("### 🔒 请输入访问密码")
+def fmt_pct(val):
+    return f"{val:+.2f}%" if val is not None else "0.00%"
+
+def check_password():
+    if "password_ok" not in st.session_state:
+        st.session_state.password_ok = False
+    if st.session_state.password_ok:
+        return True
+    st.markdown("## 🔐 请输入访问密码")
     pwd = st.text_input("密码", type="password", key="login_pwd")
-    if st.button("登录", type="primary", use_container_width=True):
-        correct = st.secrets.get("APP_PASSWORD") or os.environ.get("APP_PASSWORD", "")
-        if pwd == correct and pwd:
-            st.session_state["authenticated"] = True
+    if st.button("登录", use_container_width=True):
+        correct = st.secrets.get("APP_PASSWORD") or os.environ.get("APP_PASSWORD", "asset2026")
+        if pwd == correct:
+            st.session_state.password_ok = True
             st.rerun()
         else:
             st.error("密码错误")
+    return False
+
+if not check_password():
     st.stop()
 
+st.markdown("# 📊 资产管理看板")
+st.caption(f"最后刷新：{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
-# ============================================================
-# 工具函数
-# ============================================================
-def resolve_range(choice: str, nav_df: pd.DataFrame, custom_start=None, custom_end=None):
-    """根据时间维度选择返回 (start_date, end_date)。"""
-    today = datetime.date.today()
-    if nav_df.empty:
-        earliest = today
+t1, t2, t3, t4, t5, t6 = st.tabs(["📊 总览", "💰 每日更新", "📈 投资分析", "💸 资金流水", "📋 持仓明细", "⚙️ 账户管理"])
+
+# ===== Tab 1: 总览 =====
+with t1:
+    accounts = get_all_accounts()
+    net_asset = get_account_total(accounts)
+    nav_df = get_nav_history()
+    if not nav_df.empty:
+        latest = nav_df.iloc[-1]
+        total_return = (latest["nav"] - 1.0) * 100
+        total_profit = net_asset - latest["shares"] * latest["nav"] if latest["shares"] > 0 else 0
     else:
-        earliest = nav_df["record_date"].min()
-
-    if choice == "近一月":
-        start = today - datetime.timedelta(days=30)
-    elif choice == "近三月":
-        start = today - datetime.timedelta(days=90)
-    elif choice == "今年以来":
-        start = datetime.date(today.year, 1, 1)
-    elif choice == "近一年":
-        start = today - datetime.timedelta(days=365)
-    elif choice == "近三年":
-        start = today - datetime.timedelta(days=365 * 3)
-    elif choice == "自定义":
-        start = custom_start or earliest
-        end = custom_end or today
-        return start, end
-    else:  # 开户以来
-        start = earliest
-    return max(start, earliest), today
-
-
-def normalize_to_start(series: pd.Series) -> pd.Series:
-    """将序列归一化为从0%开始的累计收益率。"""
-    base = series.iloc[0]
-    if base == 0 or pd.isna(base):
-        return pd.Series([0.0] * len(series), index=series.index)
-    return (series / base - 1) * 100
-
-
-def calc_max_drawdown(values: pd.Series) -> float:
-    """计算最大回撤（百分比，正数表示回撤幅度）。"""
-    if len(values) < 2:
-        return 0.0
-    peak = values.cummax()
-    dd = (values - peak) / peak * 100
-    return float(abs(dd.min()))
-
-
-def calc_annualized_return(total_return_pct: float, days: int) -> float:
-    if days <= 0 or total_return_pct <= -100:
-        return 0.0
-    return ((1 + total_return_pct / 100) ** (365 / days) - 1) * 100
-
-
-def calc_volatility(daily_returns: pd.Series) -> float:
-    if len(daily_returns) < 2:
-        return 0.0
-    return float(daily_returns.std() * np.sqrt(252) * 100)
-
-
-# ============================================================
-# 渲染：建表引导
-# ============================================================
-def render_setup():
-    st.error("数据库中还没有表，请先在 Supabase 建表。")
-    st.markdown("**操作步骤**：Supabase 控制台 → 左侧 SQL Editor → New query → 粘贴以下语句 → Run")
-    st.code(SETUP_SQL, language="sql")
-    if st.button("建表完成，重新加载", type="primary"):
-        for k in ("df_assets", "df_nav", "assets_missing", "nav_missing"):
-            st.session_state.pop(k, None)
-        st.rerun()
-    st.stop()
-
-
-# ============================================================
-# 渲染：走势分析 Tab
-# ============================================================
-def render_analysis(nav_df: pd.DataFrame):
-    st.subheader("📈 净值走势与指数对比")
-
-    if nav_df.empty:
-        st.info("暂无净值数据，请先到「📝 每日记录」Tab 录入第一条数据。")
-        return
-
-    # ---- 筛选栏 ----
-    col_range, col_index, col_custom = st.columns([2, 3, 2])
-    with col_range:
-        range_choice = st.selectbox("时间维度", TIME_RANGES, index=5, key="range_choice")
-    with col_index:
-        selected_indices = st.multiselect(
-            "对比指数（可多选）", list(INDEX_MAP.keys()),
-            default=["沪深300"], key="selected_indices",
-        )
-    custom_start, custom_end = None, None
-    if range_choice == "自定义":
-        with col_custom:
-            custom_start = st.date_input("起始日期", value=nav_df["record_date"].min())
-            custom_end = st.date_input("结束日期", value=datetime.date.today())
-
-    start_date, end_date = resolve_range(range_choice, nav_df, custom_start, custom_end)
-
-    # 筛选净值数据
-    mask = (nav_df["record_date"] >= start_date) & (nav_df["record_date"] <= end_date)
-    plot_df = nav_df[mask].copy().reset_index(drop=True)
-
-    if plot_df.empty:
-        st.warning("所选时间范围内没有净值数据。")
-        return
-
-    # ---- 汇总指标 ----
-    first_asset = plot_df["total_asset"].iloc[0]
-    last_asset = plot_df["total_asset"].iloc[-1]
-    total_return = (last_asset / first_asset - 1) * 100 if first_asset else 0
-    days = (plot_df["record_date"].iloc[-1] - plot_df["record_date"].iloc[0]).days or 1
-    ann_return = calc_annualized_return(total_return, days)
-    max_dd = calc_max_drawdown(plot_df["total_asset"])
-    daily_ret = plot_df["total_asset"].pct_change().dropna()
-    vol = calc_volatility(daily_ret)
-
-    m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("区间收益率", f"{total_return:+.2f}%")
-    m2.metric("年化收益率", f"{ann_return:+.2f}%")
-    m3.metric("最大回撤", f"{max_dd:.2f}%")
-    m4.metric("年化波动率", f"{vol:.2f}%")
-    m5.metric("期末总资产", f"¥{last_asset:,.0f}")
-
-    st.divider()
-
-    # ---- 图1：总资产走势 ----
-    st.markdown("**总资产走势**")
-    fig1 = go.Figure()
-    fig1.add_trace(go.Scatter(
-        x=plot_df["record_date"], y=plot_df["total_asset"],
-        mode="lines+markers", name="总资产",
-        line=dict(color="#FF4B4B", width=2.5),
-        fill="tozeroy", fillcolor="rgba(255,75,75,0.08)",
-        hovertemplate="%{x|%Y-%m-%d}<br>¥%{y:,.0f}<extra></extra>",
-    ))
-    fig1.update_layout(
-        height=380, margin=dict(l=10, r=10, t=10, b=10),
-        xaxis_title="", yaxis_title="总资产(元)",
-        hovermode="x unified",
-        xaxis=dict(showgrid=True, gridcolor="rgba(0,0,0,0.06)"),
-        yaxis=dict(showgrid=True, gridcolor="rgba(0,0,0,0.06)"),
-    )
-    st.plotly_chart(fig1, use_container_width=True)
-
-    st.divider()
-
-    # ---- 图2：收益率对比（归一化） ----
-    st.markdown("**收益率对比（从区间起点归一化为 0%）**")
-
-    # 我的收益率
-    my_return = normalize_to_start(plot_df["total_asset"])
-    compare_df = pd.DataFrame({
-        "日期": plot_df["record_date"],
-        "我的组合": my_return.values,
-    })
-
-    # 获取指数数据
-    index_data = {}
-    fetch_start = (start_date - datetime.timedelta(days=5)).isoformat()
-    fetch_end = (end_date + datetime.timedelta(days=1)).isoformat()
-    for name in selected_indices:
-        ticker = INDEX_MAP[name]
-        idx_df = fetch_index(ticker, fetch_start, fetch_end)
-        if idx_df is not None and not idx_df.empty:
-            idx_mask = (idx_df["Date"] >= start_date) & (idx_df["Date"] <= end_date)
-            idx_plot = idx_df[idx_mask].copy()
-            if not idx_plot.empty:
-                idx_plot["ret"] = normalize_to_start(idx_plot["Close"])
-                index_data[name] = idx_plot[["Date", "ret"]]
-
-    # 合并到 compare_df（按日期对齐）
-    for name, idf in index_data.items():
-        idf = idf.rename(columns={"Date": "日期", "ret": name})
-        compare_df = compare_df.merge(idf, on="日期", how="left")
-        compare_df[name] = compare_df[name].ffill()
-
-    # 画图
-    fig2 = go.Figure()
-    colors = ["#FF4B4B", "#1f77b4", "#2ca02c", "#ff7f0e", "#9467bd", "#8c564b", "#17becf"]
-    fig2.add_trace(go.Scatter(
-        x=compare_df["日期"], y=compare_df["我的组合"],
-        mode="lines+markers", name="我的组合",
-        line=dict(color=colors[0], width=3),
-        hovertemplate="%{x|%Y-%m-%d}<br>%{y:.2f}%<extra></extra>",
-    ))
-    for i, name in enumerate(selected_indices):
-        if name in compare_df.columns:
-            fig2.add_trace(go.Scatter(
-                x=compare_df["日期"], y=compare_df[name],
-                mode="lines", name=name,
-                line=dict(color=colors[(i + 1) % len(colors)], width=1.5, dash="dash"),
-                hovertemplate="%{x|%Y-%m-%d}<br>%{y:.2f}%<extra></extra>",
-            ))
-    fig2.add_hline(y=0, line_dash="solid", line_color="rgba(0,0,0,0.2)", line_width=1)
-    fig2.update_layout(
-        height=420, margin=dict(l=10, r=10, t=10, b=10),
-        xaxis_title="", yaxis_title="累计收益率(%)",
-        hovermode="x unified",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
-        xaxis=dict(showgrid=True, gridcolor="rgba(0,0,0,0.06)"),
-        yaxis=dict(showgrid=True, gridcolor="rgba(0,0,0,0.06)", ticksuffix="%"),
-    )
-    st.plotly_chart(fig2, use_container_width=True)
-
-    # 指数数据获取状态提示
-    failed = [n for n in selected_indices if n not in compare_df.columns]
-    if failed:
-        st.caption(f"⚠️ 以下指数数据获取失败（可能网络问题或该区间无数据）：{', '.join(failed)}")
-
-
-# ============================================================
-# 渲染：持仓明细 Tab
-# ============================================================
-def render_assets(assets_df: pd.DataFrame):
-    # 汇总卡片
-    total_principal = float(assets_df["principal"].sum()) if not assets_df.empty else 0.0
-    total_value = float(assets_df["market_value"].sum()) if not assets_df.empty else 0.0
-    total_pnl = total_value - total_principal
-    total_return = (total_pnl / total_principal * 100) if total_principal else 0.0
-
+        total_return, total_profit = 0, 0
+    today_change = nav_df.iloc[-1]["total_asset"] - nav_df.iloc[-2]["total_asset"] if len(nav_df) >= 2 else 0
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("总本金", f"¥{total_principal:,.0f}")
-    c2.metric("总资产", f"¥{total_value:,.0f}")
-    delta_color = "normal" if total_pnl >= 0 else "inverse"
-    c3.metric("总盈亏", f"¥{total_pnl:,.0f}", delta=f"{total_return:+.2f}%", delta_color=delta_color)
-    c4.metric("总收益率", f"{total_return:+.2f}%")
-
-    st.divider()
-    st.subheader("📋 资产明细（直接编辑单元格，底部可新增行）")
-
-    edited = st.data_editor(
-        assets_df,
-        num_rows="dynamic",
-        use_container_width=True,
-        hide_index=True,
-        column_order=["asset_type", "asset_name", "principal", "market_value", "cost_pnl", "id"],
-        column_config={
-            "id": st.column_config.NumberColumn("id", disabled=True, width="small"),
-            "asset_type": st.column_config.SelectboxColumn("资产类别", options=ASSET_TYPES, required=True),
-            "asset_name": st.column_config.TextColumn("标的名称", required=True),
-            "principal": st.column_config.NumberColumn("本金", format="%.2f", min_value=0),
-            "market_value": st.column_config.NumberColumn("当前市值", format="%.2f", min_value=0),
-            "cost_pnl": st.column_config.NumberColumn("持仓盈亏", format="%.2f"),
-            "update_time": st.column_config.Column("更新时间", disabled=True, width="small"),
-        },
-        key="asset_editor",
-    )
-
-    col_save, col_del, col_refresh = st.columns([1, 1, 1])
-    with col_save:
-        if st.button("💾 保存修改", type="primary", use_container_width=True):
-            records = [r for r in edited.to_dict("records")
-                       if r.get("asset_name") and str(r["asset_name"]).strip()]
-            if records:
-                upsert_assets(records)
-                st.session_state.df_assets = load_assets()
-                st.success("已保存到数据库")
-                st.rerun()
-            else:
-                st.warning("没有可保存的数据")
-    with col_del:
-        del_id = st.number_input("删除行ID", min_value=1, step=1, key="del_id_input", label_visibility="collapsed")
-        if st.button("🗑️ 删除该行", use_container_width=True):
-            delete_asset(int(del_id))
-            st.session_state.df_assets = load_assets()
-            st.rerun()
-    with col_refresh:
-        if st.button("🔄 重新加载", use_container_width=True):
-            st.session_state.df_assets = load_assets()
-            st.rerun()
-
-    st.caption("提示：编辑后点「保存修改」才会写入数据库；持仓盈亏可手动填。")
-
-    st.divider()
-
-    # 图表
-    if not assets_df.empty:
-        chart_col1, chart_col2 = st.columns(2)
-        with chart_col1:
-            st.markdown("**🥧 资产类别分布**")
-            pie_df = assets_df.groupby("asset_type")["market_value"].sum().reset_index()
-            fig_pie = px.pie(pie_df, names="asset_type", values="market_value", hole=0.4,
-                             color_discrete_sequence=px.colors.qualitative.Set2)
-            fig_pie.update_traces(textposition="inside", textinfo="percent+label")
-            fig_pie.update_layout(margin=dict(l=10, r=10, t=10, b=10), showlegend=False, height=360)
-            st.plotly_chart(fig_pie, use_container_width=True)
-        with chart_col2:
-            st.markdown("**📊 各标的市值**")
-            bar_df = assets_df.sort_values("market_value", ascending=True)
-            fig_bar = px.bar(bar_df, x="market_value", y="asset_name", orientation="h",
-                             color="asset_type", color_discrete_sequence=px.colors.qualitative.Set2,
-                             labels={"market_value": "市值(元)", "asset_name": ""})
-            fig_bar.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=360,
-                                  showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02))
-            st.plotly_chart(fig_bar, use_container_width=True)
+    c1.metric("净资产", fmt_money(net_asset), f"{fmt_money(today_change)} 今日")
+    c2.metric("累计收益率", fmt_pct(total_return))
+    c3.metric("累计收益额", fmt_money(total_profit))
+    c4.metric("账户数量", f"{len(accounts)} 个")
+    st.markdown("### 资产分布")
+    if accounts:
+        dist_data = []
+        for acc in accounts:
+            val = acc["principal"] + acc["accrued_interest"]
+            val = -val if acc["direction"] == "liability" else val
+            dist_data.append({"账户": acc["account_name"], "类型": ACCOUNT_TYPES.get(acc["account_type"], acc["account_type"]), "金额": val, "方向": "负债" if acc["direction"] == "liability" else "资产"})
+        dist_df = pd.DataFrame(dist_data)
+        col_pie, col_tbl = st.columns([1, 1])
+        with col_pie:
+            asset_df = dist_df[dist_df["方向"] == "资产"]
+            if not asset_df.empty:
+                fig = px.pie(asset_df, values="金额", names="账户", color_discrete_sequence=px.colors.qualitative.Set3, hole=0.4)
+                fig.update_layout(paper_bgcolor=COLORS["chart_bg"], plot_bgcolor=COLORS["chart_bg"], font=dict(color="#e8e8f0"), margin=dict(t=20, b=20, l=20, r=20))
+                fig.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig, use_container_width=True)
+        with col_tbl:
+            d = dist_df.copy()
+            d["金额"] = d["金额"].apply(lambda x: f"¥{x:,.2f}")
+            st.dataframe(d, use_container_width=True, hide_index=True)
     else:
-        st.info("暂无数据，在上方表格中新增标的后即可看到图表。")
+        st.info("暂无账户数据，请先在「账户管理」中添加账户")
+    if not nav_df.empty:
+        st.markdown("### 净资产走势")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=nav_df["record_date"], y=nav_df["total_asset"], fill='tozeroy', fillcolor='rgba(102,126,234,0.2)', line=dict(color=COLORS["primary"], width=2), mode='lines+markers', name='净资产', hovertemplate='%{x|%Y-%m-%d}<br>净资产: ¥%{y:,.0f}<extra></extra>'))
+        fig.update_layout(paper_bgcolor=COLORS["chart_bg"], plot_bgcolor=COLORS["chart_bg"], font=dict(color="#e8e8f0"), xaxis=dict(gridcolor='rgba(255,255,255,0.05)'), yaxis=dict(gridcolor='rgba(255,255,255,0.05)', tickprefix='¥'), margin=dict(t=20, b=20, l=20, r=20), height=350)
+        st.plotly_chart(fig, use_container_width=True)
 
+# ===== Tab 2: 每日更新 =====
+with t2:
+    st.markdown("### 每日资产更新")
+    accounts = get_all_accounts()
+    record_date = st.date_input("记录日期", value=datetime.date.today())
+    if not accounts:
+        st.info("暂无账户，请先在「账户管理」中添加")
+    else:
+        st.caption("修改各账户余额，带息账户的利息系统自动计算。有出入金时在下方填写。")
+        edit_data = [{"id": a["id"], "账户名称": a["account_name"], "类型": ACCOUNT_TYPES.get(a["account_type"], a["account_type"]), "本金余额": a["principal"], "累计利息": a["accrued_interest"], "利率(%)": a["interest_rate"]} for a in accounts]
+        edited = st.data_editor(pd.DataFrame(edit_data), use_container_width=True, hide_index=True, column_config={
+            "id": st.column_config.NumberColumn(disabled=True), "账户名称": st.column_config.TextColumn(disabled=True),
+            "类型": st.column_config.TextColumn(disabled=True), "本金余额": st.column_config.NumberColumn(format="¥%.2f"),
+            "累计利息": st.column_config.NumberColumn(format="¥%.2f", disabled=True), "利率(%)": st.column_config.NumberColumn(disabled=True),
+        }, key="daily_edit")
+        st.markdown("#### 当日出入金（有变动才填）")
+        cf1, cf2, cf3, cf4 = st.columns([2, 1, 2, 1])
+        with cf1: cf_cat = st.selectbox("类别", CASHFLOW_CATEGORIES, key="cf_cat")
+        with cf2: cf_dir = st.selectbox("方向", ["入金", "出金"], key="cf_dir")
+        with cf3: cf_amt = st.number_input("金额", min_value=0.0, value=0.0, step=100.0, key="cf_amt")
+        with cf4: cf_note = st.text_input("备注", key="cf_note")
+        if st.button("➕ 添加出入金记录"):
+            if cf_amt > 0:
+                amount = cf_amt if cf_dir == "入金" else -cf_amt
+                sb.table(TABLE_CASHFLOW).insert({"record_date": record_date.isoformat(), "amount": amount, "category": cf_cat, "note": cf_note}).execute()
+                st.success(f"已添加{cf_dir}：{cf_cat} ¥{cf_amt:,.0f}")
+                st.rerun()
+        today_cf = sb.table(TABLE_CASHFLOW).select("*").eq("record_date", record_date.isoformat()).execute().data
+        if today_cf:
+            st.markdown("**当日出入金明细**")
+            cfd = pd.DataFrame(today_cf)
+            cfd["方向"] = cfd["amount"].apply(lambda x: "入金" if x > 0 else "出金")
+            cfd["金额"] = cfd["amount"].apply(lambda x: f"¥{abs(x):,.2f}")
+            st.dataframe(cfd[["category", "方向", "金额", "note"]].rename(columns={"category": "类别", "note": "备注"}), use_container_width=True, hide_index=True)
+        if st.button("💾 保存今日快照", type="primary", use_container_width=True):
+            for _, row in edited.iterrows():
+                sb.table(TABLE_ACCOUNTS).update({"principal": row["本金余额"], "accrued_interest": row["累计利息"]}).eq("id", int(row["id"])).execute()
+            accounts_new = get_all_accounts()
+            total = get_account_total(accounts_new)
+            nav_df = get_nav_history()
+            if not nav_df.empty:
+                prev = nav_df.iloc[-1]
+                prev_nav, prev_shares = prev["nav"], prev["shares"]
+            else:
+                prev_nav, prev_shares = 1.0, total
+            nav, shares = calc_nav_for_date(record_date.isoformat(), total, prev_nav, prev_shares)
+            breakdown = {str(a["id"]): a["principal"] + a["accrued_interest"] for a in accounts_new}
+            existing = sb.table(TABLE_NAV).select("id").eq("record_date", record_date.isoformat()).execute().data
+            if existing:
+                sb.table(TABLE_NAV).update({"total_asset": total, "nav": nav, "shares": shares, "breakdown": breakdown}).eq("id", existing[0]["id"]).execute()
+            else:
+                sb.table(TABLE_NAV).insert({"record_date": record_date.isoformat(), "total_asset": total, "pnl_ratio": (nav - 1) * 100, "nav": nav, "shares": shares, "breakdown": breakdown}).execute()
+            st.success(f"✅ 已保存！净资产：¥{total:,.2f}，净值：{nav:.4f}，份额：{shares:.2f}")
+            st.rerun()
 
-# ============================================================
-# 渲染：每日记录 Tab
-# ============================================================
-def render_nav_entry(nav_df: pd.DataFrame):
-    st.subheader("📝 每日净值记录")
+# ===== Tab 3: 投资分析 =====
+with t3:
+    st.markdown("### 净值走势与指数对比")
+    nav_df = get_nav_history()
+    if nav_df.empty:
+        st.info("暂无净值数据，请先在「每日更新」中记录")
+    else:
+        cr, ci = st.columns([1, 2])
+        with cr: time_range = st.selectbox("时间维度", TIME_RANGES, index=5)
+        with ci: selected_indices = st.multiselect("对比指数（可多选）", list(INDEX_MAP.keys()), default=["沪深300"])
+        start_date, end_date = None, None
+        if time_range == "自定义":
+            d1, d2 = st.columns(2)
+            with d1: start_date = st.date_input("开始日期", value=nav_df["record_date"].min().date())
+            with d2: end_date = st.date_input("结束日期", value=nav_df["record_date"].max().date())
+        else:
+            end_date = datetime.date.today()
+            range_days = {"近一月": 30, "近三月": 90, "近一年": 365, "近三年": 1095}.get(time_range)
+            if range_days:
+                start_date = end_date - datetime.timedelta(days=range_days)
+            elif time_range == "今年以来":
+                start_date = datetime.date(end_date.year, 1, 1)
+            else:
+                start_date = nav_df["record_date"].min().date()
+        mask = (nav_df["record_date"].dt.date >= start_date) & (nav_df["record_date"].dt.date <= end_date)
+        filtered = nav_df[mask].copy()
+        if filtered.empty:
+            st.warning("所选时间段内无数据")
+        else:
+            first_nav, last_nav = filtered.iloc[0]["nav"], filtered.iloc[-1]["nav"]
+            period_return = (last_nav / first_nav - 1) * 100
+            days = (filtered.iloc[-1]["record_date"] - filtered.iloc[0]["record_date"]).days
+            annual_return = ((last_nav / first_nav) ** (365 / max(days, 1)) - 1) * 100 if days > 0 else 0
+            peak = np.maximum.accumulate(filtered["nav"].values)
+            max_drawdown = ((filtered["nav"].values - peak) / peak * 100).min()
+            annual_vol = filtered["nav"].pct_change().dropna().std() * np.sqrt(252) * 100 if len(filtered) > 1 else 0
+            m1, m2, m3, m4, m5 = st.columns(5)
+            m1.metric("区间收益率", fmt_pct(period_return))
+            m2.metric("年化收益率", fmt_pct(annual_return))
+            m3.metric("最大回撤", f"{max_drawdown:.2f}%")
+            m4.metric("年化波动率", f"{annual_vol:.2f}%")
+            m5.metric("期末净资产", fmt_money(filtered.iloc[-1]["total_asset"]))
+            filtered["my_return"] = (filtered["nav"] / first_nav - 1) * 100
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["my_return"], mode='lines+markers', name='我的组合', line=dict(color=COLORS["primary"], width=3), marker=dict(size=6), hovertemplate='%{x|%Y-%m-%d}<br>收益率: %{y:.2f}%<extra></extra>'))
+            for idx_name in selected_indices:
+                idx_df = get_index_data(idx_name, start_date, end_date + datetime.timedelta(days=1))
+                if not idx_df.empty:
+                    idx_df = idx_df[(idx_df["date"].dt.date >= start_date) & (idx_df["date"].dt.date <= end_date)]
+                    if not idx_df.empty:
+                        idx_df["idx_return"] = (idx_df["close"] / idx_df.iloc[0]["close"] - 1) * 100
+                        fig.add_trace(go.Scatter(x=idx_df["date"], y=idx_df["idx_return"], mode='lines', name=idx_name, line=dict(width=1.5, dash='dash'), opacity=0.8))
+            fig.update_layout(paper_bgcolor=COLORS["chart_bg"], plot_bgcolor=COLORS["chart_bg"], font=dict(color="#e8e8f0"), xaxis=dict(gridcolor='rgba(255,255,255,0.05)', title='日期'), yaxis=dict(gridcolor='rgba(255,255,255,0.05)', title='收益率 (%)', ticksuffix='%'), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), margin=dict(t=40, b=20, l=20, r=20), height=400, hovermode='x unified')
+            fig.add_hline(y=0, line_dash="dot", line_color="rgba(255,255,255,0.3)")
+            st.plotly_chart(fig, use_container_width=True)
+            st.markdown("#### 净资产走势")
+            fig2 = go.Figure()
+            fig2.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["total_asset"], fill='tozeroy', fillcolor='rgba(102,126,234,0.15)', line=dict(color=COLORS["primary"], width=2), mode='lines+markers', name='净资产'))
+            fig2.update_layout(paper_bgcolor=COLORS["chart_bg"], plot_bgcolor=COLORS["chart_bg"], font=dict(color="#e8e8f0"), xaxis=dict(gridcolor='rgba(255,255,255,0.05)'), yaxis=dict(gridcolor='rgba(255,255,255,0.05)', tickprefix='¥'), margin=dict(t=20, b=20, l=20, r=20), height=300)
+            st.plotly_chart(fig2, use_container_width=True)
 
-    # 录入区
-    with st.container(border=True):
-        st.markdown("**新增 / 更新一条记录**")
-        col_d, col_a, col_r, col_b = st.columns([2, 2, 2, 1])
-        with col_d:
-            new_date = st.date_input("日期", value=datetime.date.today(), key="new_date")
-        with col_a:
-            new_asset = st.number_input("总资产(元)", min_value=0.0, step=100.0,
-                                        format="%.2f", key="new_asset")
-        with col_r:
-            new_ratio = st.number_input("盈亏比(%)，留空自动计算", value=None,
-                                        step=0.01, format="%.2f", key="new_ratio")
-        with col_b:
-            st.write("")
-            st.write("")
-            if st.button("➕ 录入", type="primary", use_container_width=True):
-                # 自动计算盈亏比（相对于最早记录的总资产）
-                if new_ratio is None:
-                    if not nav_df.empty:
-                        base = nav_df["total_asset"].min()
-                        # 用最早一条记录的资产作为基准
-                        base = nav_df.sort_values("record_date")["total_asset"].iloc[0]
-                        ratio = (new_asset / base - 1) * 100 if base else 0
-                    else:
-                        ratio = 0.0
+# ===== Tab 4: 资金流水 =====
+with t4:
+    st.markdown("### 出入金流水")
+    cf_data = sb.table(TABLE_CASHFLOW).select("*").order("record_date", desc=True).execute().data
+    if not cf_data:
+        st.info("暂无出入金记录")
+    else:
+        cf_df = pd.DataFrame(cf_data)
+        cf_df["record_date"] = pd.to_datetime(cf_df["record_date"])
+        cf_df["方向"] = cf_df["amount"].apply(lambda x: "📈 入金" if x > 0 else "📉 出金")
+        cf_df["金额显示"] = cf_df["amount"].apply(lambda x: f"¥{abs(x):,.2f}")
+        total_in = cf_df[cf_df["amount"] > 0]["amount"].sum()
+        total_out = abs(cf_df[cf_df["amount"] < 0]["amount"].sum())
+        c1, c2, c3 = st.columns(3)
+        c1.metric("累计入金", fmt_money(total_in))
+        c2.metric("累计出金", fmt_money(total_out))
+        c3.metric("净入金", fmt_money(total_in - total_out))
+        display_df = cf_df[["id", "record_date", "category", "方向", "金额显示", "note"]].rename(columns={"record_date": "日期", "category": "类别", "note": "备注"})
+        display_df["日期"] = display_df["日期"].dt.strftime("%Y-%m-%d")
+        edited_cf = st.data_editor(display_df, use_container_width=True, hide_index=True, column_config={
+            "id": st.column_config.NumberColumn(disabled=True), "日期": st.column_config.TextColumn(),
+            "类别": st.column_config.SelectboxColumn(options=CASHFLOW_CATEGORIES), "方向": st.column_config.TextColumn(disabled=True),
+            "金额显示": st.column_config.TextColumn(disabled=True), "备注": st.column_config.TextColumn(),
+        }, key="cf_editor")
+        if st.button("💾 保存修改"):
+            for _, row in edited_cf.iterrows():
+                sb.table(TABLE_CASHFLOW).update({"record_date": row["日期"], "category": row["类别"], "note": row["备注"]}).eq("id", int(row["id"])).execute()
+            st.success("已保存")
+            st.rerun()
+        del_id = st.number_input("删除记录ID", min_value=0, value=0, step=1)
+        if st.button("🗑️ 删除该记录") and del_id > 0:
+            sb.table(TABLE_CASHFLOW).delete().eq("id", del_id).execute()
+            st.success(f"已删除ID={del_id}")
+            st.rerun()
+
+# ===== Tab 5: 持仓明细 =====
+with t5:
+    st.markdown("### 持仓明细（偶尔更新，不影响净值）")
+    assets_data = sb.table(TABLE_ASSETS).select("*").order("id").execute().data
+    if assets_data:
+        assets_df = pd.DataFrame(assets_data)
+        tp, tv, tpnl = assets_df["principal"].sum(), assets_df["market_value"].sum(), assets_df["cost_pnl"].sum()
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("总本金", fmt_money(tp))
+        c2.metric("总市值", fmt_money(tv))
+        c3.metric("总盈亏", fmt_money(tpnl))
+        c4.metric("总收益率", fmt_pct(tpnl / tp * 100 if tp > 0 else 0))
+        edit_assets = st.data_editor(assets_df, use_container_width=True, hide_index=True, column_config={
+            "id": st.column_config.NumberColumn(disabled=True),
+            "asset_type": st.column_config.SelectboxColumn("资产类别", options=["股票", "ETF", "期权", "基金", "债券", "现金", "其他"]),
+            "asset_name": st.column_config.TextColumn("标的名称"),
+            "principal": st.column_config.NumberColumn("本金", format="¥%.2f"),
+            "market_value": st.column_config.NumberColumn("当前市值", format="¥%.2f"),
+            "cost_pnl": st.column_config.NumberColumn("持仓盈亏", format="¥%.2f"),
+            "update_time": st.column_config.TextColumn(disabled=True),
+        }, num_rows="dynamic", key="assets_editor")
+        if st.button("💾 保存持仓修改"):
+            for _, row in edit_assets.iterrows():
+                data = {"asset_type": row["asset_type"], "asset_name": row["asset_name"], "principal": row["principal"], "market_value": row["market_value"], "cost_pnl": row["cost_pnl"]}
+                if pd.notna(row.get("id")):
+                    sb.table(TABLE_ASSETS).update(data).eq("id", int(row["id"])).execute()
                 else:
-                    ratio = float(new_ratio)
-                upsert_nav([{"record_date": new_date, "total_asset": new_asset, "pnl_ratio": ratio}])
-                st.session_state.df_nav = load_nav()
-                st.success(f"已录入 {new_date}：总资产 ¥{new_asset:,.2f}，盈亏比 {ratio:.2f}%")
-                st.rerun()
-
-    st.caption("提示：同一日期再次录入会覆盖更新；盈亏比留空则自动按起始本金计算。")
-
-    st.divider()
-
-    # 历史记录
-    st.markdown("**历史记录（可直接编辑，底部可新增行）**")
-    nav_display = nav_df.copy()
-    nav_display["record_date"] = nav_display["record_date"].astype(str)
-
-    edited_nav = st.data_editor(
-        nav_display,
-        num_rows="dynamic",
-        use_container_width=True,
-        hide_index=True,
-        column_order=["record_date", "total_asset", "pnl_ratio", "id"],
-        column_config={
-            "id": st.column_config.NumberColumn("id", disabled=True, width="small"),
-            "record_date": st.column_config.TextColumn("日期", required=True),
-            "total_asset": st.column_config.NumberColumn("总资产", format="%.2f", min_value=0),
-            "pnl_ratio": st.column_config.NumberColumn("盈亏比(%)", format="%.2f"),
-            "update_time": st.column_config.Column("更新时间", disabled=True, width="small"),
-        },
-        key="nav_editor",
-    )
-
-    col_save2, col_del2, col_refresh2 = st.columns([1, 1, 1])
-    with col_save2:
-        if st.button("💾 保存修改", type="primary", use_container_width=True, key="nav_save"):
-            records = [r for r in edited_nav.to_dict("records")
-                       if r.get("record_date") and str(r["record_date"]).strip()]
-            if records:
-                upsert_nav(records)
-                st.session_state.df_nav = load_nav()
-                st.success("已保存")
-                st.rerun()
-    with col_del2:
-        del_nav_id = st.number_input("删除记录ID", min_value=1, step=1, key="del_nav_id", label_visibility="collapsed")
-        if st.button("🗑️ 删除该记录", use_container_width=True, key="nav_del"):
-            delete_nav(int(del_nav_id))
-            st.session_state.df_nav = load_nav()
+                    sb.table(TABLE_ASSETS).insert(data).execute()
+            st.success("已保存")
             st.rerun()
-    with col_refresh2:
-        if st.button("🔄 重新加载", use_container_width=True, key="nav_refresh"):
-            st.session_state.df_nav = load_nav()
+    else:
+        st.info("暂无持仓数据")
+        if st.button("➕ 添加第一条持仓"):
+            sb.table(TABLE_ASSETS).insert({"asset_type": "股票", "asset_name": "示例", "principal": 0, "market_value": 0, "cost_pnl": 0}).execute()
             st.rerun()
 
-
-# ============================================================
-# 渲染：备份导出 Tab
-# ============================================================
-def render_backup(assets_df: pd.DataFrame, nav_df: pd.DataFrame):
-    st.subheader("📦 数据备份")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("**持仓明细**")
-        if not assets_df.empty:
-            st.dataframe(assets_df, use_container_width=True, hide_index=True)
-            csv_a = assets_df.to_csv(index=False, encoding="utf-8-sig")
-            st.download_button("⬇️ 导出持仓 CSV", data=csv_a,
-                               file_name=f"持仓明细_{datetime.date.today()}.csv",
-                               mime="text/csv", use_container_width=True)
-        else:
-            st.info("暂无持仓数据")
-
-    with col2:
-        st.markdown("**每日净值**")
-        if not nav_df.empty:
-            st.dataframe(nav_df, use_container_width=True, hide_index=True)
-            csv_n = nav_df.to_csv(index=False, encoding="utf-8-sig")
-            st.download_button("⬇️ 导出净值 CSV", data=csv_n,
-                               file_name=f"每日净值_{datetime.date.today()}.csv",
-                               mime="text/csv", use_container_width=True)
-        else:
-            st.info("暂无净值数据")
-
-    st.divider()
-    with st.expander("ℹ️ 使用说明"):
-        st.markdown("""
-        - **每日记录**：每个交易日收盘后到「📝 每日记录」录入总资产，盈亏比可留空自动计算。
-        - **走势分析**：到「📈 走势分析」选择时间维度和对比指数，查看归一化收益率曲线。
-        - **持仓明细**：到「💼 持仓明细」维护各标的的本金和市值，饼图柱状图自动生成。
-        - **修改密码**：Streamlit 页面右下角 Manage app → Settings → Secrets → 修改 APP_PASSWORD。
-        - **指数说明**：A股指数用对应ETF收盘价跟踪（沪深300=510300、中证500=510500、科创50=588000、创业板=159915），美股用指数本身（^NDX、^GSPC）。
-        """)
-
-
-# ============================================================
-# 主页面
-# ============================================================
-def main():
-    login()
-
-    st.title("📊 投资资产看板")
-    st.caption(f"最后刷新：{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}")
-
-    # 加载数据（缓存到 session_state）
-    if "df_assets" not in st.session_state:
-        st.session_state.df_assets = load_assets()
-    if "df_nav" not in st.session_state:
-        st.session_state.df_nav = load_nav()
-
-    assets_df = st.session_state.df_assets
-    nav_df = st.session_state.df_nav
-
-    # 表不存在时显示建表引导
-    if st.session_state.get("assets_missing") or st.session_state.get("nav_missing"):
-        render_setup()
-
-    # Tab 布局
-    tab1, tab2, tab3, tab4 = st.tabs(["📈 走势分析", "💼 持仓明细", "📝 每日记录", "📦 备份导出"])
-
-    with tab1:
-        render_analysis(nav_df)
-    with tab2:
-        render_assets(assets_df)
-    with tab3:
-        render_nav_entry(nav_df)
-    with tab4:
-        render_backup(assets_df, nav_df)
-
-
-if __name__ == "__main__":
-    main()
+# ===== Tab 6: 账户管理 =====
+with t6:
+    st.markdown("### 账户管理")
+    accounts = get_all_accounts(active_only=False)
+    if accounts:
+        edit_acc = st.data_editor(pd.DataFrame(accounts), use_container_width=True, hide_index=True, column_config={
+            "id": st.column_config.NumberColumn(disabled=True),
+            "account_name": st.column_config.TextColumn("账户名称"),
+            "account_type": st.column_config.SelectboxColumn("类型", options=list(ACCOUNT_TYPES.keys())),
+            "direction": st.column_config.SelectboxColumn("方向", options=["asset", "liability"]),
+            "interest_rate": st.column_config.NumberColumn("年利率(%)", format="%.2f"),
+            "principal": st.column_config.NumberColumn("本金", format="¥%.2f"),
+            "accrued_interest": st.column_config.NumberColumn("累计利息", format="¥%.2f"),
+            "last_interest_date": st.column_config.TextColumn("计息基准日", disabled=True),
+            "sort_order": st.column_config.NumberColumn("排序"),
+            "is_active": st.column_config.CheckboxColumn("启用"),
+            "update_time": st.column_config.TextColumn(disabled=True),
+        }, num_rows="dynamic", key="acc_editor")
+        if st.button("💾 保存账户修改"):
+            for _, row in edit_acc.iterrows():
+                data = {"account_name": row["account_name"], "account_type": row["account_type"], "direction": row["direction"], "interest_rate": row["interest_rate"], "principal": row["principal"], "accrued_interest": row["accrued_interest"], "sort_order": row["sort_order"], "is_active": row["is_active"]}
+                if pd.notna(row.get("id")):
+                    sb.table(TABLE_ACCOUNTS).update(data).eq("id", int(row["id"])).execute()
+                else:
+                    data["last_interest_date"] = datetime.date.today().isoformat()
+                    sb.table(TABLE_ACCOUNTS).insert(data).execute()
+            st.success("已保存账户设置")
+            st.rerun()
+    else:
+        st.info("暂无账户")
+    st.markdown("#### 快速添加账户")
+    qc1, qc2, qc3, qc4 = st.columns(4)
+    with qc1: new_name = st.text_input("账户名称", key="new_acc_name")
+    with qc2: new_type = st.selectbox("类型", list(ACCOUNT_TYPES.keys()), key="new_acc_type")
+    with qc3: new_dir = st.selectbox("方向", ["asset", "liability"], key="new_acc_dir")
+    with qc4: new_rate = st.number_input("年利率(%)", value=0.0, key="new_acc_rate")
+    if st.button("➕ 添加账户") and new_name:
+        sb.table(TABLE_ACCOUNTS).insert({"account_name": new_name, "account_type": new_type, "direction": new_dir, "interest_rate": new_rate, "principal": 0, "accrued_interest": 0, "last_interest_date": datetime.date.today().isoformat(), "sort_order": len(accounts) + 1 if accounts else 1}).execute()
+        st.success(f"已添加账户：{new_name}")
+        st.rerun()
+    st.markdown("### 📦 数据备份导出")
+    bc1, bc2, bc3 = st.columns(3)
+    with bc1:
+        if st.button("导出账户数据"):
+            st.download_button("下载账户CSV", pd.DataFrame(get_all_accounts(active_only=False)).to_csv(index=False).encode("utf-8-sig"), "accounts_backup.csv", "text/csv")
+    with bc2:
+        if st.button("导出净值数据"):
+            st.download_button("下载净值CSV", get_nav_history().to_csv(index=False).encode("utf-8-sig"), "nav_backup.csv", "text/csv")
+    with bc3:
+        if st.button("导出入金数据"):
+            st.download_button("下载流水CSV", pd.DataFrame(sb.table(TABLE_CASHFLOW).select("*").execute().data).to_csv(index=False).encode("utf-8-sig"), "cashflow_backup.csv", "text/csv")
+    st.caption("提示：第一次保存快照时自动设定起始净值=1.0、起始份额=当日净资产")
