@@ -1,13 +1,6 @@
-# -*- coding: utf-8 -*-
-"""
-个人资产负债统一管理看板 — Streamlit 单页应用
-"""
-import os
-import datetime
-import numpy as np
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
+﻿# -*- coding: utf-8 -*-
+import os, datetime, numpy as np, pandas as pd
+import plotly.express as px, plotly.graph_objects as go
 import streamlit as st
 from supabase import create_client, Client
 
@@ -15,36 +8,42 @@ st.set_page_config(page_title="资产管理看板", page_icon="📊", layout="wi
 
 st.markdown("""
 <style>
-.stApp {background: #0d1117; color: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+.stApp {background: linear-gradient(180deg, #0b0b12 0%, #111118 100%); color: #e2e8f0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;}
 #MainMenu, footer, header {visibility: hidden;}
-h1 {color: #f0f6fc; font-weight: 700; font-size: 1.8rem; margin-bottom: 0.3rem;}
-h2, h3 {color: #f0f6fc; font-weight: 600; border-left: 3px solid #3b82f6; padding-left: 10px; margin-top: 1rem; margin-bottom: 0.6rem;}
-div[data-testid="stMetric"] {background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 16px;}
-div[data-testid="stMetric"] label {color: #8b949e !important; font-size: 0.78rem; font-weight: 500;}
-div[data-testid="stMetricValue"] {font-size: 1.4rem; font-weight: 700; color: #f0f6fc;}
-div[data-testid="stMetricDelta"] {font-size: 0.8rem; font-weight: 600;}
-.stTabs [data-baseweb="tab-list"] {gap: 2px; background: #161b22; padding: 3px; border-radius: 6px; border: 1px solid #30363d; margin-bottom: 0.8rem;}
-.stTabs [data-baseweb="tab"] {background: transparent; border-radius: 5px; padding: 7px 14px; color: #8b949e; font-weight: 500; font-size: 0.88rem; transition: all 0.15s;}
-.stTabs [data-baseweb="tab"]:hover {color: #f0f6fc; background: #21262d;}
-.stTabs [aria-selected="true"] {background: #238636 !important; color: #fff !important; font-weight: 600;}
-.stButton > button {background: #238636; border: 1px solid #2ea043; border-radius: 6px; color: #fff; font-weight: 600; font-size: 0.88rem; padding: 0.35rem 1.1rem; transition: all 0.15s;}
-.stButton > button:hover {background: #2ea043; border-color: #3fb950; color: #fff;}
-.stTextInput > div > div > input, .stNumberInput > div > div > input, .stDateInput > div > div > input {background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #f0f6fc; font-size: 0.88rem; padding: 5px 10px;}
-.stTextInput > div > div > input:focus, .stNumberInput > div > div > input:focus, .stDateInput > div > div > input:focus {border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.25);}
-.stTextInput label, .stNumberInput label, .stDateInput label, .stSelectbox label, .stMultiSelect label {color: #c9d1d9 !important; font-weight: 500; font-size: 0.82rem;}
-.stSelectbox > div > div > div, .stMultiSelect > div > div > div {background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #f0f6fc;}
-.stDataFrame {border-radius: 6px; overflow: hidden; border: 1px solid #30363d;}
-.stDataFrame table {background: #161b22;}
-.stDataFrame th {background: #21262d; color: #c9d1d9; font-weight: 600; border-bottom: 2px solid #30363d; padding: 7px 10px; font-size: 0.82rem;}
-.stDataFrame td {color: #e6edf3; border-bottom: 1px solid #21262d; padding: 5px 10px; font-size: 0.85rem;}
-.stDataFrame tr:hover td {background: #1c2128;}
-.stInfo {background: #1c2128; border: 1px solid #3b82f6; border-left: 4px solid #3b82f6; border-radius: 6px; color: #c9d1d9; padding: 10px 14px; font-size: 0.88rem;}
-.stSuccess {background: #1c2128; border: 1px solid #238636; border-left: 4px solid #238636; border-radius: 6px; color: #c9d1d9; padding: 10px 14px; font-size: 0.88rem;}
-.stWarning {background: #1c2128; border: 1px solid #d29922; border-left: 4px solid #d29922; border-radius: 6px; color: #c9d1d9; padding: 10px 14px; font-size: 0.88rem;}
-.stError {background: #1c2128; border: 1px solid #f85149; border-left: 4px solid #f85149; border-radius: 6px; color: #c9d1d9; padding: 10px 14px; font-size: 0.88rem;}
-.stDivider {border-color: #30363d !important; margin: 0.8rem 0;}
-.stDataEditor {border-radius: 6px; overflow: hidden; border: 1px solid #30363d;}
-.stCaption {color: #8b949e; font-size: 0.8rem;}
+h1 {color: #f8fafc; font-weight: 800; font-size: 1.75rem; letter-spacing: -0.02em; margin-bottom: 0.25rem;}
+h2, h3 {color: #f1f5f9; font-weight: 700; font-size: 1.15rem; letter-spacing: -0.01em; margin-top: 1.2rem; margin-bottom: 0.7rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(148,163,184,0.12);}
+div[data-testid="stMetric"] {background: linear-gradient(135deg, rgba(30,30,45,0.9) 0%, rgba(22,22,32,0.95) 100%); border: 1px solid rgba(148,163,184,0.1); border-radius: 14px; padding: 16px 18px; box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04); transition: all 0.25s cubic-bezier(0.4,0,0.2,1);}
+div[data-testid="stMetric"]:hover {border-color: rgba(129,140,248,0.3); box-shadow: 0 8px 32px rgba(129,140,248,0.12); transform: translateY(-2px);}
+div[data-testid="stMetric"] label {color: #94a3b8 !important; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;}
+div[data-testid="stMetricValue"] {font-size: 1.55rem; font-weight: 700; color: #f8fafc; letter-spacing: -0.01em; margin-top: 4px;}
+div[data-testid="stMetricDelta"] {font-size: 0.78rem; font-weight: 600;}
+.stTabs [data-baseweb="tab-list"] {gap: 4px; background: rgba(30,30,45,0.6); padding: 5px; border-radius: 12px; border: 1px solid rgba(148,163,184,0.08); margin-bottom: 1rem; backdrop-filter: blur(10px);}
+.stTabs [data-baseweb="tab"] {background: transparent; border-radius: 9px; padding: 9px 16px; color: #94a3b8; font-weight: 500; font-size: 0.88rem; transition: all 0.2s;}
+.stTabs [data-baseweb="tab"]:hover {color: #e2e8f0; background: rgba(148,163,184,0.08);}
+.stTabs [aria-selected="true"] {background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%) !important; color: #fff !important; font-weight: 600; box-shadow: 0 4px 16px rgba(99,102,241,0.35);}
+.stButton > button {background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%); border: none; border-radius: 10px; color: #fff; font-weight: 600; font-size: 0.88rem; padding: 0.5rem 1.3rem; box-shadow: 0 4px 16px rgba(99,102,241,0.25); transition: all 0.2s;}
+.stButton > button:hover {background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 100%); box-shadow: 0 6px 24px rgba(99,102,241,0.4); transform: translateY(-1px); color: #fff;}
+.stTextInput > div > div > input, .stNumberInput > div > div > input, .stDateInput > div > div > input {background: rgba(15,15,25,0.8); border: 1px solid rgba(148,163,184,0.15); border-radius: 10px; color: #f1f5f9; font-size: 0.9rem; padding: 8px 12px;}
+.stTextInput > div > div > input:focus, .stNumberInput > div > div > input:focus, .stDateInput > div > div > input:focus {border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,0.15);}
+.stTextInput label, .stNumberInput label, .stDateInput label, .stSelectbox label, .stMultiSelect label {color: #cbd5e1 !important; font-weight: 500; font-size: 0.82rem;}
+.stSelectbox > div > div > div, .stMultiSelect > div > div > div {background: rgba(15,15,25,0.8); border: 1px solid rgba(148,163,184,0.15); border-radius: 10px; color: #f1f5f9;}
+.stDataFrame {border-radius: 12px; overflow: hidden; border: 1px solid rgba(148,163,184,0.1); box-shadow: 0 4px 20px rgba(0,0,0,0.2);}
+.stDataFrame table {background: rgba(22,22,32,0.9);}
+.stDataFrame th {background: rgba(30,30,45,0.95); color: #cbd5e1; font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 2px solid rgba(129,140,248,0.2); padding: 10px 12px;}
+.stDataFrame td {color: #e2e8f0; border-bottom: 1px solid rgba(148,163,184,0.06); padding: 8px 12px; font-size: 0.88rem;}
+.stDataFrame tr:hover td {background: rgba(129,140,248,0.06);}
+.stInfo {background: rgba(30,30,45,0.7); border: 1px solid rgba(129,140,248,0.25); border-left: 3px solid #818cf8; border-radius: 10px; color: #cbd5e1; padding: 12px 16px;}
+.stSuccess {background: rgba(30,45,35,0.7); border: 1px solid rgba(52,211,153,0.25); border-left: 3px solid #34d399; border-radius: 10px; color: #a7f3d0; padding: 12px 16px;}
+.stWarning {background: rgba(45,40,25,0.7); border: 1px solid rgba(251,191,36,0.25); border-left: 3px solid #fbbf24; border-radius: 10px; color: #fde68a; padding: 12px 16px;}
+.stError {background: rgba(45,25,30,0.7); border: 1px solid rgba(248,113,113,0.25); border-left: 3px solid #f87171; border-radius: 10px; color: #fecaca; padding: 12px 16px;}
+.stDivider {border-color: rgba(148,163,184,0.1) !important;}
+.stDataEditor {border-radius: 12px; overflow: hidden; border: 1px solid rgba(148,163,184,0.1);}
+.stCaption {color: #64748b; font-size: 0.78rem;}
+::-webkit-scrollbar {width: 8px; height: 8px;}
+::-webkit-scrollbar-track {background: transparent;}
+::-webkit-scrollbar-thumb {background: rgba(148,163,184,0.2); border-radius: 4px;}
+::-webkit-scrollbar-thumb:hover {background: rgba(148,163,184,0.35);}
 </style>
 """, unsafe_allow_html=True)
 
@@ -57,7 +56,9 @@ ACCOUNT_TYPES = {"stock": "股票账户", "option": "期权账户", "futures": "
 CASHFLOW_CATEGORIES = ["工资转入", "新增投入", "消费贷提款", "贷款提款", "提现消费", "还贷本金", "还贷利息", "借出款项", "收回借款", "收到利息", "其他"]
 INDEX_MAP = {"沪深300": "510300.SS", "中证500": "510500.SS", "科创50": "588000.SS", "创业板指": "159915.SZ", "纳斯达克100": "^NDX", "标普500": "^GSPC"}
 TIME_RANGES = ["近一月", "近三月", "今年以来", "近一年", "近三年", "开户以来", "自定义"]
-CHART_BG = "#161b22"
+CHART_BG = "rgba(22,22,32,0.6)"
+CHART_GRID = "rgba(148,163,184,0.1)"
+CHART_TEXT = "#cbd5e1"
 CHART_GRID = "#30363d"
 CHART_TEXT = "#c9d1d9"
 
@@ -238,7 +239,7 @@ with t1:
     if not nav_df.empty:
         st.markdown("### 净资产走势")
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=nav_df["record_date"], y=nav_df["total_asset"], fill='tozeroy', fillcolor='rgba(59,130,246,0.2)', line=dict(color="#3b82f6", width=2), mode='lines+markers', name='净资产', hovertemplate='%{x|%Y-%m-%d}<br>净资产: ¥%{y:,.0f}<extra></extra>'))
+        fig.add_trace(go.Scatter(x=nav_df["record_date"], y=nav_df["total_asset"], fill='tozeroy', fillcolor='rgba(129,140,248,0.15)', line=dict(color="#818cf8", width=2), mode='lines+markers', name='净资产', hovertemplate='%{x|%Y-%m-%d}<br>净资产: ¥%{y:,.0f}<extra></extra>'))
         chart_layout(fig, 320)
         fig.update_yaxes(tickprefix='¥')
         st.plotly_chart(fig, use_container_width=True)
@@ -342,7 +343,7 @@ with t3:
             m5.metric("期末净资产", fmt_money(filtered.iloc[-1]["total_asset"]))
             filtered["my_return"] = (filtered["nav"] / first_nav - 1) * 100
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["my_return"], mode='lines+markers', name='我的组合', line=dict(color="#3b82f6", width=3), marker=dict(size=6), hovertemplate='%{x|%Y-%m-%d}<br>收益率: %{y:.2f}%<extra></extra>'))
+            fig.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["my_return"], mode='lines+markers', name='我的组合', line=dict(color="#818cf8", width=3), marker=dict(size=6), hovertemplate='%{x|%Y-%m-%d}<br>收益率: %{y:.2f}%<extra></extra>'))
             idx_colors = ["#f85149", "#d29922", "#a371f7", "#3fb950", "#58a6ff", "#f778ba"]
             for i, idx_name in enumerate(selected_indices):
                 idx_df = get_index_data(idx_name, start_date, end_date + datetime.timedelta(days=1))
@@ -355,11 +356,11 @@ with t3:
             fig.update_yaxes(ticksuffix='%', title='收益率 (%)')
             fig.update_xaxes(title='日期')
             fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor=CHART_BG), hovermode='x unified')
-            fig.add_hline(y=0, line_dash="dot", line_color="#8b949e", line_width=1)
+            fig.add_hline(y=0, line_dash="dot", line_color="rgba(148,163,184,0.4)", line_width=1)
             st.plotly_chart(fig, use_container_width=True)
             st.markdown("#### 净资产走势")
             fig2 = go.Figure()
-            fig2.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["total_asset"], fill='tozeroy', fillcolor='rgba(59,130,246,0.15)', line=dict(color="#3b82f6", width=2), mode='lines+markers', name='净资产'))
+            fig2.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["total_asset"], fill='tozeroy', fillcolor='rgba(129,140,248,0.12)', line=dict(color="#818cf8", width=2), mode='lines+markers', name='净资产'))
             chart_layout(fig2, 280)
             fig2.update_yaxes(tickprefix='¥')
             st.plotly_chart(fig2, use_container_width=True)
