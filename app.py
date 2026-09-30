@@ -70,10 +70,14 @@ CREATE TABLE IF NOT EXISTS assets (
     update_time  TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "anon read"   ON assets FOR SELECT USING (true);
-CREATE POLICY IF NOT EXISTS "anon write"  ON assets FOR INSERT WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "anon update" ON assets FOR UPDATE USING (true);
-CREATE POLICY IF NOT EXISTS "anon delete" ON assets FOR DELETE USING (true);
+DROP POLICY IF EXISTS "anon read"   ON assets;
+CREATE POLICY "anon read"   ON assets FOR SELECT USING (true);
+DROP POLICY IF EXISTS "anon write"  ON assets;
+CREATE POLICY "anon write"  ON assets FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "anon update" ON assets;
+CREATE POLICY "anon update" ON assets FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "anon delete" ON assets;
+CREATE POLICY "anon delete" ON assets FOR DELETE USING (true);
 
 -- 每日净值表
 CREATE TABLE IF NOT EXISTS daily_nav (
@@ -84,10 +88,14 @@ CREATE TABLE IF NOT EXISTS daily_nav (
     update_time TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE daily_nav ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "nav read"   ON daily_nav FOR SELECT USING (true);
-CREATE POLICY IF NOT EXISTS "nav write"  ON daily_nav FOR INSERT WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "nav update" ON daily_nav FOR UPDATE USING (true);
-CREATE POLICY IF NOT EXISTS "nav delete" ON daily_nav FOR DELETE USING (true);"""
+DROP POLICY IF EXISTS "nav read"   ON daily_nav;
+CREATE POLICY "nav read"   ON daily_nav FOR SELECT USING (true);
+DROP POLICY IF EXISTS "nav write"  ON daily_nav;
+CREATE POLICY "nav write"  ON daily_nav FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "nav update" ON daily_nav;
+CREATE POLICY "nav update" ON daily_nav FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "nav delete" ON daily_nav;
+CREATE POLICY "nav delete" ON daily_nav FOR DELETE USING (true);"""
 
 
 # ============================================================
