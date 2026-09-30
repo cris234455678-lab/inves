@@ -177,21 +177,21 @@ CREATE POLICY "anon delete" ON assets FOR DELETE USING (true);""", language="sql
     st.subheader("📋 资产明细（直接编辑单元格，底部可新增行）")
 
     edit_df = df.copy()
-    # data_editor 不显示 id 列（隐藏主键），但保留在 DataFrame 中
-    display_cols = ["asset_type", "asset_name", "principal", "market_value", "cost_pnl"]
     edited = st.data_editor(
-        edit_df[display_cols + ["id"]],
+        edit_df,
         num_rows="dynamic",          # 允许底部新增行
         use_container_width=True,
         hide_index=True,
+        column_order=["asset_type", "asset_name", "principal", "market_value", "cost_pnl", "id"],
         column_config={
-            "id": st.column_config.Column("id", disabled=True, hidden=True),
+            "id": st.column_config.NumberColumn("id", disabled=True, width="small"),
             "asset_type": st.column_config.SelectboxColumn(
                 "资产类别", options=ASSET_TYPES, required=True),
             "asset_name": st.column_config.TextColumn("标的名称", required=True),
             "principal": st.column_config.NumberColumn("本金", format="%.2f", min_value=0),
             "market_value": st.column_config.NumberColumn("当前市值", format="%.2f", min_value=0),
             "cost_pnl": st.column_config.NumberColumn("持仓盈亏", format="%.2f"),
+            "update_time": st.column_config.Column("更新时间", disabled=True, width="small"),
         },
         key="asset_editor",
     )
