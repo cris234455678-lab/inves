@@ -57,7 +57,7 @@ html, body, [class*="css"] {
 
 /* ========== 侧边栏 ========== */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0a0b0e 0%, #08090b 100%);
+    background: linear-gradient(180deg, #14161c 0%, #101217 100%);
     border-right: 1px solid var(--line);
     min-width: 240px !important;
     max-width: 240px !important;
@@ -102,7 +102,7 @@ html, body, [class*="css"] {
 }
 .side-brand-sub {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.62rem;
+    font-size: 0.78rem;
     color: var(--fg-3);
     letter-spacing: 0.14em;
     margin-top: 6px;
@@ -130,7 +130,7 @@ html, body, [class*="css"] {
     transition: all .15s ease;
     color: var(--fg-2) !important;
     font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.74rem !important;
+    font-size: 0.92rem !important;
     letter-spacing: 0.06em !important;
     text-transform: uppercase;
     font-weight: 500;
@@ -167,7 +167,7 @@ html, body, [class*="css"] {
     width: 240px;
     padding: 0 1.5rem;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.6rem;
+    font-size: 0.75rem;
     color: var(--fg-3);
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -224,7 +224,7 @@ html, body, [class*="css"] {
 .page-hero .hero-meta::before {
     content: '●';
     color: var(--green);
-    font-size: 0.55rem;
+    font-size: 0.7rem;
     text-shadow: 0 0 8px var(--green);
     animation: blink 2s ease-in-out infinite;
 }
@@ -255,7 +255,7 @@ h2::before, h3::before {
 /* ========== 指标卡（核心重设计） ========== */
 div[data-testid="stMetric"] {
     position: relative;
-    background: linear-gradient(180deg, var(--surface) 0%, #0a0b0e 100%);
+    background: linear-gradient(180deg, var(--surface) 0%, #121419 100%);
     border: 1px solid var(--line-2);
     border-radius: 0;
     padding: 16px 18px 14px 18px;
@@ -311,7 +311,7 @@ div[data-testid="stMetricDelta"] {
 /* 第一列（主指标）加大 */
 [data-testid="column"]:first-of-type div[data-testid="stMetric"] {
     padding: 26px 24px 22px 24px;
-    background: linear-gradient(180deg, #101115 0%, #0a0b0e 100%);
+    background: linear-gradient(180deg, #1a1d24 0%, #14161c 100%);
 }
 [data-testid="column"]:first-of-type div[data-testid="stMetricValue"] {
     font-size: 2.4rem;
@@ -404,7 +404,7 @@ div[data-testid="stMetricDelta"] {
     color: var(--fg-3) !important;
     font-family: 'JetBrains Mono', monospace;
     font-weight: 500;
-    font-size: 0.62rem;
+    font-size: 0.78rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
 }
@@ -1014,8 +1014,8 @@ elif nav == "账户管理":
         edit_acc = st.data_editor(pd.DataFrame(accounts), use_container_width=True, hide_index=True, column_config={
             "id": st.column_config.NumberColumn(disabled=True),
             "account_name": st.column_config.TextColumn("账户名称"),
-            "account_type": st.column_config.SelectboxColumn("类型", options=list(ACCOUNT_TYPES.keys())),
-            "direction": st.column_config.SelectboxColumn("方向", options=["asset", "liability"]),
+            "account_type": st.column_config.SelectboxColumn("类型", options=list(ACCOUNT_TYPES.values())),
+            "direction": st.column_config.SelectboxColumn("方向", options=["资产", "负债"]),
             "interest_rate": st.column_config.NumberColumn("年利率(%)", format="%.2f"),
             "principal": st.column_config.NumberColumn("本金", format="¥%.2f"),
             "accrued_interest": st.column_config.NumberColumn("累计利息", format="¥%.2f"),
@@ -1026,7 +1026,8 @@ elif nav == "账户管理":
         }, num_rows="dynamic", key="acc_editor")
         if st.button("💾 保存账户修改"):
             for _, row in edit_acc.iterrows():
-                data = {"account_name": row["account_name"], "account_type": row["account_type"], "direction": row["direction"], "interest_rate": row["interest_rate"], "principal": row["principal"], "accrued_interest": row["accrued_interest"], "sort_order": row["sort_order"], "is_active": row["is_active"]}
+                _type_rev = {v: k for k, v in ACCOUNT_TYPES.items()}
+                data = {"account_name": row["account_name"], "account_type": _type_rev.get(row["account_type"], row["account_type"]), "direction": "asset" if row["direction"] == "资产" else "liability", "interest_rate": row["interest_rate"], "principal": row["principal"], "accrued_interest": row["accrued_interest"], "sort_order": row["sort_order"], "is_active": row["is_active"]}
                 if pd.notna(row.get("id")):
                     sb.table(TABLE_ACCOUNTS).update(data).eq("id", int(row["id"])).execute()
                 else:
@@ -1040,11 +1041,12 @@ elif nav == "账户管理":
     st.markdown("#### 快速添加账户")
     qc1, qc2, qc3, qc4 = st.columns(4)
     with qc1: new_name = st.text_input("账户名称", key="new_acc_name")
-    with qc2: new_type = st.selectbox("类型", list(ACCOUNT_TYPES.keys()), key="new_acc_type")
-    with qc3: new_dir = st.selectbox("方向", ["asset", "liability"], key="new_acc_dir")
+    with qc2: new_type = st.selectbox("类型", list(ACCOUNT_TYPES.values()), key="new_acc_type")
+    with qc3: new_dir = st.selectbox("方向", ["资产", "负债"], key="new_acc_dir")
     with qc4: new_rate = st.number_input("年利率(%)", value=0.0, key="new_acc_rate")
     if st.button("➕ 添加账户") and new_name:
-        sb.table(TABLE_ACCOUNTS).insert({"account_name": new_name, "account_type": new_type, "direction": new_dir, "interest_rate": new_rate, "principal": 0, "accrued_interest": 0, "last_interest_date": datetime.date.today().isoformat(), "sort_order": len(accounts) + 1 if accounts else 1}).execute()
+        _type_rev = {v: k for k, v in ACCOUNT_TYPES.items()}
+        sb.table(TABLE_ACCOUNTS).insert({"account_name": new_name, "account_type": _type_rev.get(new_type, new_type), "direction": "asset" if new_dir == "资产" else "liability", "interest_rate": new_rate, "principal": 0, "accrued_interest": 0, "last_interest_date": datetime.date.today().isoformat(), "sort_order": len(accounts) + 1 if accounts else 1}).execute()
         st.success(f"已添加账户：{new_name}")
         st.rerun()
 
