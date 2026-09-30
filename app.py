@@ -58,8 +58,8 @@ html, body, [class*="css"] {
     backdrop-filter: blur(40px) saturate(180%);
     -webkit-backdrop-filter: blur(40px) saturate(180%);
     border-right: 0.5px solid rgba(0,0,0,0.08);
-    min-width: 220px !important;
-    max-width: 220px !important;
+    min-width: 240px !important;
+    max-width: 240px !important;
 }
 
 [data-testid="stSidebar"] > div:first-child {
@@ -71,7 +71,7 @@ html, body, [class*="css"] {
     margin-bottom: 0.5rem;
 }
 .side-brand-title {
-    font-size: 1.05rem;
+    font-size: 1.2rem;
     font-weight: 700;
     color: var(--fg);
     letter-spacing: -0.02em;
@@ -81,37 +81,37 @@ html, body, [class*="css"] {
 }
 .side-brand-title::before {
     content: '';
-    width: 10px; height: 10px;
+    width: 11px; height: 11px;
     border-radius: 50%;
     background: linear-gradient(135deg, #FF3B30, #FF9500, #FFCC00, #34C759, #5AC8FA, #007AFF, #AF52DE);
     box-shadow: 0 0 8px rgba(0,122,255,0.3);
 }
 .side-brand-sub {
-    font-size: 0.72rem;
+    font-size: 0.8rem;
     color: var(--fg-3);
     margin-top: 4px;
-    padding-left: 18px;
+    padding-left: 19px;
 }
 
 [data-testid="stSidebar"] [role="radiogroup"] {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
     padding: 0 0.5rem;
 }
 
 [data-testid="stSidebar"] [role="radiogroup"] > label {
     display: flex !important;
     align-items: center;
-    padding: 8px 12px !important;
+    padding: 10px 14px !important;
     margin: 0 !important;
-    border-radius: 8px !important;
+    border-radius: 9px !important;
     border: none !important;
     background: transparent !important;
     cursor: pointer;
     transition: background .15s ease, color .15s ease;
     color: var(--fg) !important;
-    font-size: 0.86rem !important;
+    font-size: 1rem !important;
     font-weight: 500;
     letter-spacing: -0.005em;
 }
@@ -137,7 +137,7 @@ html, body, [class*="css"] {
 
 [data-testid="stSidebar"] [role="radiogroup"] > label p {
     color: inherit !important;
-    font-size: 0.86rem !important;
+    font-size: 1rem !important;
     font-weight: inherit !important;
     margin: 0;
 }
@@ -146,7 +146,7 @@ html, body, [class*="css"] {
     margin: 1.5rem 0.75rem 0 0.75rem;
     padding-top: 1rem;
     border-top: 0.5px solid rgba(0,0,0,0.08);
-    font-size: 0.7rem;
+    font-size: 0.78rem;
     color: var(--fg-3);
     letter-spacing: 0.02em;
 }
@@ -509,11 +509,14 @@ TABLE_CASHFLOW = "cash_flow"
 TABLE_ASSETS = "assets"
 
 ACCOUNT_TYPES = {"stock": "股票账户", "option": "期权账户", "futures": "期货账户", "fund": "基金账户", "credit": "债权（借出款）", "liability": "负债（消费贷）", "other": "其他"}
+ACCOUNT_TYPE_REVERSE = {v: k for k, v in ACCOUNT_TYPES.items()}
+DIRECTION_CN = {"asset": "资产", "liability": "负债"}
+DIRECTION_REVERSE = {"资产": "asset", "负债": "liability"}
+
 CASHFLOW_CATEGORIES = ["工资转入", "新增投入", "消费贷提款", "贷款提款", "提现消费", "还贷本金", "还贷利息", "借出款项", "收回借款", "收到利息", "其他"]
 INDEX_MAP = {"沪深300": "510300.SS", "中证500": "510500.SS", "科创50": "588000.SS", "创业板指": "159915.SZ", "纳斯达克100": "^NDX", "标普500": "^GSPC"}
 TIME_RANGES = ["近一月", "近三月", "今年以来", "近一年", "近三年", "开户以来", "自定义"]
 
-# macOS 系统配色
 MAIN_BLUE = "#007AFF"
 CHART_BG = "rgba(0,0,0,0)"
 CHART_GRID = "rgba(0,0,0,0.06)"
@@ -605,7 +608,8 @@ def get_index_data(index_name, start_date, end_date):
         close_col = "close" if "close" in df.columns else df.columns[-1]
         date_col = "date" if "date" in df.columns else df.columns[0]
         df = df[[date_col, close_col]].rename(columns={date_col: "date", close_col: "close"})
-        df["date"] = pd.to_datetime(df["date"])
+        # 关键修复：日期归零到"当天"，去掉时间部分
+        df["date"] = pd.to_datetime(df["date"]).dt.normalize()
         return df
     except Exception:
         return pd.DataFrame()
@@ -618,11 +622,25 @@ def fmt_money(val):
 def fmt_pct(val):
     return f"{val:+.2f}%" if val is not None else "0.00%"
 
+def fmt_short_time(val):
+    """把时间戳格式化为短格式：MM-DD HH:MM"""
+    if val is None or (isinstance(val, float) and pd.isna(val)) or val == "":
+        return ""
+    try:
+        ts = pd.to_datetime(val)
+        return ts.strftime("%m-%d %H:%M")
+    except Exception:
+        return str(val)[:16]
+
 def chart_layout(fig, height=350):
     fig.update_layout(
         paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
         font=dict(color=CHART_TEXT, size=11, family="-apple-system, BlinkMacSystemFont, Inter, sans-serif"),
-        xaxis=dict(gridcolor=CHART_GRID, zerolinecolor=CHART_GRID, linecolor=CHART_GRID),
+        # 关键修复：tickformat 只显示年月日
+        xaxis=dict(
+            gridcolor=CHART_GRID, zerolinecolor=CHART_GRID, linecolor=CHART_GRID,
+            tickformat="%Y-%m-%d",
+        ),
         yaxis=dict(gridcolor=CHART_GRID, zerolinecolor=CHART_GRID, linecolor=CHART_GRID),
         margin=dict(t=20, b=15, l=15, r=15),
         height=height,
@@ -804,14 +822,52 @@ elif nav == "投资分析":
     if nav_df.empty:
         st.info("暂无净值数据，请先在「每日更新」中记录")
     else:
+        # 关键修复：净值日期也归零
+        nav_df["record_date"] = pd.to_datetime(nav_df["record_date"]).dt.normalize()
+
         cr, ci = st.columns([1, 2])
         with cr: time_range = st.selectbox("时间维度", TIME_RANGES, index=5)
         with ci: selected_indices = st.multiselect("对比指数（可多选）", list(INDEX_MAP.keys()), default=["沪深300"])
+
+        min_d = pd.to_datetime(nav_df["record_date"].min()).date()
+        max_d = pd.to_datetime(nav_df["record_date"].max()).date()
+
+        if "custom_start_date" not in st.session_state:
+            st.session_state.custom_start_date = min_d
+        if "custom_end_date" not in st.session_state:
+            st.session_state.custom_end_date = max_d
+
+        if st.session_state.custom_start_date < min_d:
+            st.session_state.custom_start_date = min_d
+        if st.session_state.custom_start_date > max_d:
+            st.session_state.custom_start_date = max_d
+        if st.session_state.custom_end_date < min_d:
+            st.session_state.custom_end_date = min_d
+        if st.session_state.custom_end_date > max_d:
+            st.session_state.custom_end_date = max_d
+
         start_date, end_date = None, None
         if time_range == "自定义":
             d1, d2 = st.columns(2)
-            with d1: start_date = st.date_input("开始日期", value=nav_df["record_date"].min().date())
-            with d2: end_date = st.date_input("结束日期", value=nav_df["record_date"].max().date())
+            with d1:
+                start_date = st.date_input(
+                    "开始日期",
+                    key="custom_start_date",
+                    min_value=min_d,
+                    max_value=max_d,
+                )
+            with d2:
+                end_date = st.date_input(
+                    "结束日期",
+                    key="custom_end_date",
+                    min_value=min_d,
+                    max_value=max_d,
+                )
+            start_date = pd.to_datetime(start_date).date() if start_date else min_d
+            end_date = pd.to_datetime(end_date).date() if end_date else max_d
+            if start_date > end_date:
+                st.warning("开始日期晚于结束日期，已自动交换")
+                start_date, end_date = end_date, start_date
         else:
             end_date = datetime.date.today()
             range_days = {"近一月": 30, "近三月": 90, "近一年": 365, "近三年": 1095}.get(time_range)
@@ -820,7 +876,8 @@ elif nav == "投资分析":
             elif time_range == "今年以来":
                 start_date = datetime.date(end_date.year, 1, 1)
             else:
-                start_date = nav_df["record_date"].min().date()
+                start_date = min_d
+
         mask = (nav_df["record_date"].dt.date >= start_date) & (nav_df["record_date"].dt.date <= end_date)
         filtered = nav_df[mask].copy()
         if filtered.empty:
@@ -855,10 +912,17 @@ elif nav == "投资分析":
                         fig.add_trace(go.Scatter(x=idx_df["date"], y=idx_df["idx_return"], mode='lines',
                                                  name=idx_name,
                                                  line=dict(color=idx_colors[i % len(idx_colors)], width=1.5, dash='dot'),
-                                                 opacity=0.85))
+                                                 opacity=0.85,
+                                                 hovertemplate='%{x|%Y-%m-%d}<br>' + idx_name + ': %{y:.2f}%<extra></extra>'))
             chart_layout(fig, 380)
             fig.update_yaxes(ticksuffix='%', title='收益率 (%)')
-            fig.update_xaxes(title='日期')
+            # 关键修复：X 轴只显示年月日
+            fig.update_xaxes(
+                title='日期',
+                tickformat='%Y-%m-%d',
+                hoverformat='%Y-%m-%d',
+                type='date',
+            )
             fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
                                           bgcolor="rgba(255,255,255,0.9)"), hovermode='x unified')
             fig.add_hline(y=0, line_dash="dot", line_color="rgba(0,0,0,0.15)", line_width=1)
@@ -869,9 +933,11 @@ elif nav == "投资分析":
                                       fill='tozeroy', fillcolor='rgba(0,122,255,0.10)',
                                       line=dict(color=MAIN_BLUE, width=2.5), mode='lines+markers',
                                       marker=dict(size=5, color=MAIN_BLUE, line=dict(color="#ffffff", width=1.5)),
-                                      name='净资产'))
+                                      name='净资产',
+                                      hovertemplate='%{x|%Y-%m-%d}<br>净资产: ¥%{y:,.0f}<extra></extra>'))
             chart_layout(fig2, 280)
             fig2.update_yaxes(tickprefix='¥')
+            fig2.update_xaxes(tickformat='%Y-%m-%d', hoverformat='%Y-%m-%d')
             st.plotly_chart(fig2, use_container_width=True)
 
 elif nav == "资金流水":
@@ -916,6 +982,11 @@ elif nav == "持仓明细":
     assets_data = sb.table(TABLE_ASSETS).select("*").order("id").execute().data
     if assets_data:
         assets_df = pd.DataFrame(assets_data)
+
+        # 关键修复：把 update_time 格式化为短格式 MM-DD HH:MM
+        if "update_time" in assets_df.columns:
+            assets_df["update_time"] = assets_df["update_time"].apply(fmt_short_time)
+
         tp, tv, tpnl = assets_df["principal"].sum(), assets_df["market_value"].sum(), assets_df["cost_pnl"].sum()
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("总本金", fmt_money(tp))
@@ -929,7 +1000,7 @@ elif nav == "持仓明细":
             "principal": st.column_config.NumberColumn("本金", format="¥%.2f"),
             "market_value": st.column_config.NumberColumn("当前市值", format="¥%.2f"),
             "cost_pnl": st.column_config.NumberColumn("持仓盈亏", format="¥%.2f"),
-            "update_time": st.column_config.TextColumn(disabled=True),
+            "update_time": st.column_config.TextColumn("更新时间", disabled=True, width="small"),
         }, num_rows="dynamic", key="assets_editor")
         if st.button("💾 保存持仓修改"):
             for _, row in edit_assets.iterrows():
@@ -950,22 +1021,45 @@ elif nav == "账户管理":
     page_header("账户管理")
     accounts = get_all_accounts(active_only=False)
     if accounts:
-        edit_acc = st.data_editor(pd.DataFrame(accounts), use_container_width=True, hide_index=True, column_config={
+        display_acc = pd.DataFrame(accounts).copy()
+        display_acc["account_type"] = display_acc["account_type"].map(lambda x: ACCOUNT_TYPES.get(x, x))
+        display_acc["direction"] = display_acc["direction"].map(lambda x: DIRECTION_CN.get(x, x))
+
+        # 关键修复：账户管理的 update_time 也短格式化
+        if "update_time" in display_acc.columns:
+            display_acc["update_time"] = display_acc["update_time"].apply(fmt_short_time)
+
+        edit_acc = st.data_editor(display_acc, use_container_width=True, hide_index=True, column_config={
             "id": st.column_config.NumberColumn(disabled=True),
             "account_name": st.column_config.TextColumn("账户名称"),
-            "account_type": st.column_config.SelectboxColumn("类型", options=list(ACCOUNT_TYPES.keys())),
-            "direction": st.column_config.SelectboxColumn("方向", options=["asset", "liability"]),
+            "account_type": st.column_config.SelectboxColumn("类型", options=list(ACCOUNT_TYPES.values())),
+            "direction": st.column_config.SelectboxColumn("方向", options=["资产", "负债"]),
             "interest_rate": st.column_config.NumberColumn("年利率(%)", format="%.2f"),
             "principal": st.column_config.NumberColumn("本金", format="¥%.2f"),
             "accrued_interest": st.column_config.NumberColumn("累计利息", format="¥%.2f"),
             "last_interest_date": st.column_config.TextColumn("计息基准日", disabled=True),
             "sort_order": st.column_config.NumberColumn("排序"),
             "is_active": st.column_config.CheckboxColumn("启用"),
-            "update_time": st.column_config.TextColumn(disabled=True),
+            "update_time": st.column_config.TextColumn("更新时间", disabled=True, width="small"),
         }, num_rows="dynamic", key="acc_editor")
+
         if st.button("💾 保存账户修改"):
             for _, row in edit_acc.iterrows():
-                data = {"account_name": row["account_name"], "account_type": row["account_type"], "direction": row["direction"], "interest_rate": row["interest_rate"], "principal": row["principal"], "accrued_interest": row["accrued_interest"], "sort_order": row["sort_order"], "is_active": row["is_active"]}
+                type_cn = row["account_type"]
+                type_en = ACCOUNT_TYPE_REVERSE.get(type_cn, type_cn)
+                direction_cn = row["direction"]
+                direction_en = DIRECTION_REVERSE.get(direction_cn, direction_cn)
+
+                data = {
+                    "account_name": row["account_name"],
+                    "account_type": type_en,
+                    "direction": direction_en,
+                    "interest_rate": row["interest_rate"],
+                    "principal": row["principal"],
+                    "accrued_interest": row["accrued_interest"],
+                    "sort_order": row["sort_order"],
+                    "is_active": row["is_active"],
+                }
                 if pd.notna(row.get("id")):
                     sb.table(TABLE_ACCOUNTS).update(data).eq("id", int(row["id"])).execute()
                 else:
@@ -979,8 +1073,8 @@ elif nav == "账户管理":
     st.markdown("#### 快速添加账户")
     qc1, qc2, qc3, qc4 = st.columns(4)
     with qc1: new_name = st.text_input("账户名称", key="new_acc_name")
-    with qc2: new_type = st.selectbox("类型", list(ACCOUNT_TYPES.keys()), key="new_acc_type")
-    with qc3: new_dir = st.selectbox("方向", ["asset", "liability"], key="new_acc_dir")
+    with qc2: new_type = st.selectbox("类型", list(ACCOUNT_TYPES.keys()), format_func=lambda k: ACCOUNT_TYPES[k], key="new_acc_type")
+    with qc3: new_dir = st.selectbox("方向", ["asset", "liability"], format_func=lambda k: DIRECTION_CN[k], key="new_acc_dir")
     with qc4: new_rate = st.number_input("年利率(%)", value=0.0, key="new_acc_rate")
     if st.button("➕ 添加账户") and new_name:
         sb.table(TABLE_ACCOUNTS).insert({"account_name": new_name, "account_type": new_type, "direction": new_dir, "interest_rate": new_rate, "principal": 0, "accrued_interest": 0, "last_interest_date": datetime.date.today().isoformat(), "sort_order": len(accounts) + 1 if accounts else 1}).execute()
