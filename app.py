@@ -8,391 +8,330 @@ st.set_page_config(page_title="资产管理看板", page_icon="◆", layout="wid
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --bg: #08090b;
-    --surface: #0e0f12;
-    --surface-2: #14151a;
-    --line: rgba(255,255,255,0.05);
-    --line-2: rgba(255,255,255,0.09);
-    --line-3: rgba(255,255,255,0.14);
-    --fg: #e8eaee;
-    --fg-2: #9ca3af;
-    --fg-3: #5a6069;
-    --amber: #ffb800;
-    --amber-2: #ff9e00;
-    --amber-dim: rgba(255,184,0,0.10);
-    --green: #00d26a;
-    --green-dim: rgba(0,210,106,0.10);
-    --red: #ff4757;
-    --red-dim: rgba(255,71,87,0.10);
+    --bg: #eef1f6;
+    --card: rgba(255,255,255,0.72);
+    --card-solid: #ffffff;
+    --fg: #1d1d1f;
+    --fg-2: #4b5563;
+    --fg-3: #8e8e93;
+    --blue: #007AFF;
+    --blue-2: #0051D5;
+    --green: #34C759;
+    --red: #FF3B30;
+    --orange: #FF9500;
+    --purple: #5856D6;
+    --pink: #FF2D55;
+    --teal: #5AC8FA;
 }
 
-/* ========== 基础 ========== */
+* { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
 html, body, [class*="css"] {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-    -webkit-font-smoothing: antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
 }
 
 .stApp {
-    background: var(--bg);
-    background-image:
-        linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px),
-        radial-gradient(1000px 700px at 15% -10%, rgba(255,184,0,0.06), transparent 60%),
-        radial-gradient(800px 600px at 110% 110%, rgba(255,158,0,0.04), transparent 60%);
-    background-size: 36px 36px, 36px 36px, auto, auto;
+    background:
+        radial-gradient(ellipse 900px 600px at 15% 0%, rgba(255,183,215,0.40), transparent 55%),
+        radial-gradient(ellipse 800px 600px at 85% 100%, rgba(150,200,255,0.40), transparent 55%),
+        radial-gradient(ellipse 700px 500px at 50% 50%, rgba(200,180,255,0.20), transparent 60%),
+        linear-gradient(180deg, #eef1f6 0%, #e9ecf3 100%);
+    background-attachment: fixed;
     color: var(--fg);
+    min-height: 100vh;
 }
 
 #MainMenu, footer, header { visibility: hidden; }
 
-/* ========== 主内容区 ========== */
-.main .block-container,
 .block-container {
-    padding: 1.8rem 2.2rem 4rem 2.2rem !important;
-    max-width: 1500px;
+    padding-top: 2rem !important;
+    padding-bottom: 4rem !important;
+    max-width: 1400px;
 }
 
-/* ========== 侧边栏 ========== */
+/* ================= 侧边栏 (Finder 风格) ================= */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #14161c 0%, #101217 100%);
-    border-right: 1px solid var(--line);
-    min-width: 240px !important;
-    max-width: 240px !important;
+    background: rgba(248,249,251,0.72) !important;
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border-right: 0.5px solid rgba(0,0,0,0.08);
+    min-width: 220px !important;
+    max-width: 220px !important;
 }
 
 [data-testid="stSidebar"] > div:first-child {
-    padding-top: 1.6rem;
+    padding-top: 1.5rem;
 }
 
-[data-testid="stSidebar"] .block-container {
-    padding: 0.5rem 1rem !important;
-}
-
-/* 侧边栏品牌区 */
 .side-brand {
-    padding: 0 0.5rem 1.2rem 0.5rem;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 1rem;
+    padding: 0 0.75rem 1rem 0.75rem;
+    margin-bottom: 0.5rem;
 }
 .side-brand-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.82rem;
+    font-size: 1.05rem;
     font-weight: 700;
-    letter-spacing: 0.22em;
-    color: var(--amber);
-    text-transform: uppercase;
+    color: var(--fg);
+    letter-spacing: -0.02em;
     display: flex;
     align-items: center;
     gap: 8px;
 }
 .side-brand-title::before {
     content: '';
-    display: inline-block;
-    width: 6px; height: 6px;
-    background: var(--amber);
-    box-shadow: 0 0 10px var(--amber), 0 0 20px rgba(255,184,0,0.5);
-    animation: blink 2s ease-in-out infinite;
-}
-@keyframes blink {
-    0%,100% { opacity: 1; }
-    50% { opacity: 0.35; }
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FF3B30, #FF9500, #FFCC00, #34C759, #5AC8FA, #007AFF, #AF52DE);
+    box-shadow: 0 0 8px rgba(0,122,255,0.3);
 }
 .side-brand-sub {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     color: var(--fg-3);
-    letter-spacing: 0.14em;
-    margin-top: 6px;
-    padding-left: 14px;
+    margin-top: 4px;
+    padding-left: 18px;
 }
 
-/* 侧边栏导航（radio 改造） */
 [data-testid="stSidebar"] [role="radiogroup"] {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    padding: 0;
+    gap: 2px;
+    padding: 0 0.5rem;
 }
 
 [data-testid="stSidebar"] [role="radiogroup"] > label {
     display: flex !important;
     align-items: center;
-    padding: 11px 14px !important;
+    padding: 8px 12px !important;
     margin: 0 !important;
-    border-radius: 0 !important;
+    border-radius: 8px !important;
     border: none !important;
-    border-left: 2px solid transparent !important;
     background: transparent !important;
     cursor: pointer;
-    transition: all .15s ease;
-    color: var(--fg-2) !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.92rem !important;
-    letter-spacing: 0.06em !important;
-    text-transform: uppercase;
+    transition: background .15s ease, color .15s ease;
+    color: var(--fg) !important;
+    font-size: 0.86rem !important;
     font-weight: 500;
+    letter-spacing: -0.005em;
 }
 
-/* 隐藏 radio 圆圈 */
-[data-testid="stSidebar"] [role="radiogroup"] > label > div:first-of-type {
+[data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {
     display: none !important;
 }
 
 [data-testid="stSidebar"] [role="radiogroup"] > label:hover {
-    background: rgba(255,184,0,0.04) !important;
-    color: var(--fg) !important;
+    background: rgba(0,0,0,0.045) !important;
 }
 
 [data-testid="stSidebar"] [role="radiogroup"] > label:has(input:checked) {
-    background: linear-gradient(90deg, rgba(255,184,0,0.10) 0%, transparent 100%) !important;
-    border-left-color: var(--amber) !important;
-    color: var(--amber) !important;
+    background: var(--blue) !important;
+    color: #ffffff !important;
     font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08), 0 4px 12px rgba(0,122,255,0.25);
 }
 
-[data-testid="stSidebar"] [role="radiogroup"] > label:has(input:checked)::before {
-    content: '▸';
-    margin-right: 6px;
-    color: var(--amber);
+[data-testid="stSidebar"] [role="radiogroup"] > label:has(input:checked) p {
+    color: #ffffff !important;
 }
 
-/* 侧边栏底部 */
+[data-testid="stSidebar"] [role="radiogroup"] > label p {
+    color: inherit !important;
+    font-size: 0.86rem !important;
+    font-weight: inherit !important;
+    margin: 0;
+}
+
 .side-footer {
-    position: fixed;
-    bottom: 1.2rem;
-    left: 0;
-    width: 240px;
-    padding: 0 1.5rem;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-    color: var(--fg-3);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    border-top: 1px solid var(--line);
+    margin: 1.5rem 0.75rem 0 0.75rem;
     padding-top: 1rem;
+    border-top: 0.5px solid rgba(0,0,0,0.08);
+    font-size: 0.7rem;
+    color: var(--fg-3);
+    letter-spacing: 0.02em;
 }
-.side-footer span { color: var(--amber); }
+.side-footer span { color: var(--green); font-weight: 600; }
 
-/* ========== 页面标题（顶栏） ========== */
+/* ================= 页面顶栏 ================= */
 .page-hero {
     display: flex;
-    align-items: baseline;
+    align-items: flex-end;
     justify-content: space-between;
-    border-bottom: 1px solid var(--line-2);
-    padding-bottom: 1.1rem;
-    margin-bottom: 1.6rem;
-    position: relative;
-}
-.page-hero::after {
-    content: '';
-    position: absolute;
-    left: 0; bottom: -1px;
-    width: 60px; height: 2px;
-    background: var(--amber);
-    box-shadow: 0 0 12px rgba(255,184,0,0.7);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
 }
 .page-hero h1 {
-    font-family: 'Inter', sans-serif;
-    font-size: 1.85rem;
-    font-weight: 800;
-    letter-spacing: -0.035em;
+    font-size: 1.9rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
     color: var(--fg);
     margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
-.page-hero h1::before {
-    content: '◆';
-    color: var(--amber);
-    font-size: 0.85rem;
-    text-shadow: 0 0 12px rgba(255,184,0,0.9);
+    line-height: 1.1;
 }
 .page-hero .hero-meta {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68rem;
+    font-size: 0.78rem;
     color: var(--fg-3);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    padding-bottom: 4px;
 }
 .page-hero .hero-meta::before {
-    content: '●';
-    color: var(--green);
-    font-size: 0.7rem;
-    text-shadow: 0 0 8px var(--green);
+    content: '';
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px rgba(52,199,89,0.6);
     animation: blink 2s ease-in-out infinite;
 }
+@keyframes blink {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
 
-/* ========== 普通 h2/h3 ========== */
+/* ================= 小节标题 ================= */
 h2, h3 {
-    font-family: 'JetBrains Mono', monospace;
     color: var(--fg);
     font-weight: 600;
-    font-size: 0.72rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    margin: 2rem 0 1rem 0;
-    padding: 0 0 0.6rem 0;
-    border-bottom: 1px solid var(--line);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-h2::before, h3::before {
-    content: '';
-    width: 3px;
-    height: 12px;
-    background: var(--amber);
-    box-shadow: 0 0 8px rgba(255,184,0,0.6);
+    font-size: 1.05rem;
+    letter-spacing: -0.015em;
+    margin: 1.8rem 0 1rem 0;
+    padding: 0;
+    border: none;
 }
 
-/* ========== 指标卡（核心重设计） ========== */
+/* ================= 指标卡 (macOS Widget) ================= */
 div[data-testid="stMetric"] {
     position: relative;
-    background: linear-gradient(180deg, var(--surface) 0%, #121419 100%);
-    border: 1px solid var(--line-2);
-    border-radius: 0;
-    padding: 16px 18px 14px 18px;
-    overflow: hidden;
-    transition: border-color .2s ease, box-shadow .2s ease;
-}
-
-/* 顶部 1px 渐变描边 */
-div[data-testid="stMetric"]::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,184,0,0.55), transparent);
+    background: var(--card);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 0.5px solid rgba(255,255,255,0.9);
+    border-radius: 18px;
+    padding: 18px 20px 16px 20px;
+    box-shadow:
+        0 0 0 0.5px rgba(0,0,0,0.04),
+        0 1px 2px rgba(0,0,0,0.02),
+        0 4px 12px rgba(0,0,0,0.04),
+        0 16px 32px rgba(0,0,0,0.05);
+    transition: transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s ease;
 }
 
 div[data-testid="stMetric"]:hover {
-    border-color: var(--line-3);
-    box-shadow: 0 0 0 1px rgba(255,184,0,0.12), 0 20px 40px -24px rgba(255,184,0,0.35);
+    transform: translateY(-2px);
+    box-shadow:
+        0 0 0 0.5px rgba(0,0,0,0.05),
+        0 2px 4px rgba(0,0,0,0.02),
+        0 8px 20px rgba(0,0,0,0.06),
+        0 24px 48px rgba(0,0,0,0.08);
 }
 
 div[data-testid="stMetricLabel"] {
     color: var(--fg-3) !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.62rem !important;
+    font-size: 0.72rem !important;
     font-weight: 500 !important;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
+    letter-spacing: 0.005em;
+    text-transform: none;
 }
 div[data-testid="stMetricLabel"] p {
-    font-size: 0.62rem !important;
-    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.72rem !important;
+    font-weight: 500 !important;
+    color: var(--fg-3) !important;
 }
 
 div[data-testid="stMetricValue"] {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.5rem;
-    font-weight: 600;
+    font-size: 1.6rem;
+    font-weight: 700;
     color: var(--fg);
-    letter-spacing: -0.02em;
-    margin-top: 8px;
+    letter-spacing: -0.025em;
+    margin-top: 6px;
     font-variant-numeric: tabular-nums;
 }
 
 div[data-testid="stMetricDelta"] {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
+    font-size: 0.78rem;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
     margin-top: 2px;
 }
 
-/* 第一列（主指标）加大 */
 [data-testid="column"]:first-of-type div[data-testid="stMetric"] {
-    padding: 26px 24px 22px 24px;
-    background: linear-gradient(180deg, #1a1d24 0%, #14161c 100%);
+    padding: 22px 22px 20px 22px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(240,246,255,0.85) 100%);
+    backdrop-filter: blur(30px) saturate(180%);
 }
 [data-testid="column"]:first-of-type div[data-testid="stMetricValue"] {
-    font-size: 2.4rem;
-    color: #ffffff;
-    text-shadow: 0 0 24px rgba(255,184,0,0.15);
-}
-[data-testid="column"]:first-of-type div[data-testid="stMetric"]::before {
-    background: linear-gradient(90deg, rgba(255,184,0,0.9), transparent 60%);
-    height: 2px;
-}
-[data-testid="column"]:first-of-type div[data-testid="stMetric"]::after {
-    content: '';
-    position: absolute;
-    right: 14px; top: 14px;
-    width: 8px; height: 8px;
-    border-top: 1px solid var(--amber);
-    border-right: 1px solid var(--amber);
-    opacity: 0.7;
+    font-size: 2.2rem;
+    color: var(--blue);
 }
 
-/* ========== 按钮 ========== */
+/* ================= 按钮 ================= */
 .stButton > button,
 .stDownloadButton > button {
-    background: var(--surface-2);
-    border: 1px solid var(--line-3);
-    border-radius: 0;
+    background: var(--card-solid);
+    border: 0.5px solid rgba(0,0,0,0.1);
+    border-radius: 9px;
     color: var(--fg);
-    font-family: 'JetBrains Mono', monospace;
     font-weight: 500;
-    font-size: 0.72rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding: 0.65rem 1.3rem;
+    font-size: 0.85rem;
+    letter-spacing: -0.005em;
+    padding: 0.5rem 1.1rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.03);
     transition: all .18s ease;
-    position: relative;
+    font-family: inherit;
 }
 
 .stButton > button:hover,
 .stDownloadButton > button:hover {
-    background: var(--amber-dim);
-    border-color: var(--amber);
-    color: var(--amber);
-    box-shadow: 0 0 0 1px rgba(255,184,0,0.2), 0 8px 24px -12px rgba(255,184,0,0.5);
+    background: #ffffff;
+    border-color: rgba(0,0,0,0.14);
+    color: var(--fg);
+    transform: translateY(-0.5px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05), 0 6px 16px rgba(0,0,0,0.06);
+}
+
+.stButton > button:active,
+.stDownloadButton > button:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
 .stButton > button[kind="primary"],
 .stButton > button[data-testid="baseButton-primary"] {
-    background: var(--amber);
-    border: 1px solid var(--amber);
-    color: #0a0b0e;
-    font-weight: 700;
-    box-shadow: 0 0 0 1px rgba(255,184,0,0.3), 0 10px 30px -12px rgba(255,184,0,0.7);
+    background: var(--blue);
+    border: 0.5px solid var(--blue-2);
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08), 0 4px 14px rgba(0,122,255,0.35);
 }
-
 .stButton > button[kind="primary"]:hover,
 .stButton > button[data-testid="baseButton-primary"]:hover {
-    background: #ffc933;
-    border-color: #ffc933;
-    color: #0a0b0e;
-    box-shadow: 0 0 0 1px rgba(255,201,51,0.5), 0 14px 40px -12px rgba(255,201,51,0.9);
+    background: #0a84ff;
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08), 0 8px 22px rgba(0,122,255,0.45);
 }
 
-/* ========== 输入控件 ========== */
+/* ================= 输入控件 ================= */
 .stTextInput > div > div > input,
 .stNumberInput > div > div > input,
 .stDateInput > div > div > input {
-    background: var(--bg);
-    border: 1px solid var(--line-2);
-    border-radius: 0;
+    background: rgba(255,255,255,0.9);
+    border: 0.5px solid rgba(0,0,0,0.12);
+    border-radius: 9px;
     color: var(--fg);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.82rem;
+    font-size: 0.88rem;
     padding: 9px 12px;
-    transition: border-color .2s ease, box-shadow .2s ease;
+    transition: all .18s ease;
+    font-family: inherit;
+    box-shadow: inset 0 1px 1px rgba(0,0,0,0.02);
 }
 
 .stTextInput > div > div > input:focus,
 .stNumberInput > div > div > input:focus,
 .stDateInput > div > div > input:focus {
-    border-color: var(--amber);
-    box-shadow: 0 0 0 1px var(--amber), 0 0 20px -4px rgba(255,184,0,0.4);
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3.5px rgba(0,122,255,0.18), inset 0 1px 1px rgba(0,0,0,0.02);
+    background: #ffffff;
     outline: none;
 }
 
@@ -401,167 +340,165 @@ div[data-testid="stMetricDelta"] {
 .stDateInput label,
 .stSelectbox label,
 .stMultiSelect label {
-    color: var(--fg-3) !important;
-    font-family: 'JetBrains Mono', monospace;
+    color: var(--fg-2) !important;
     font-weight: 500;
-    font-size: 0.78rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: -0.005em;
+    text-transform: none;
 }
 
 .stSelectbox > div > div > div,
 .stMultiSelect > div > div > div {
-    background: var(--bg);
-    border: 1px solid var(--line-2);
-    border-radius: 0;
+    background: rgba(255,255,255,0.9);
+    border: 0.5px solid rgba(0,0,0,0.12);
+    border-radius: 9px;
     color: var(--fg);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.82rem;
-    transition: border-color .2s ease;
+    font-size: 0.88rem;
+    transition: all .18s ease;
+    box-shadow: inset 0 1px 1px rgba(0,0,0,0.02);
 }
 
 .stSelectbox > div > div > div:hover,
 .stMultiSelect > div > div > div:hover {
-    border-color: var(--line-3);
+    border-color: rgba(0,0,0,0.2);
 }
 
 .stMultiSelect [data-baseweb="tag"] {
-    background: var(--amber-dim) !important;
-    border: 1px solid rgba(255,184,0,0.4) !important;
-    border-radius: 0 !important;
-    color: var(--amber) !important;
-    font-family: 'JetBrains Mono', monospace;
+    background: var(--blue) !important;
+    border-radius: 6px !important;
+    color: #fff !important;
     font-weight: 500;
+    border: none !important;
 }
 
-/* ========== 数据表格 ========== */
+/* ================= 表格 ================= */
 [data-testid="stDataFrame"],
 [data-testid="stDataEditor"] {
-    border-radius: 0;
+    border-radius: 14px;
     overflow: hidden;
-    border: 1px solid var(--line-2);
-    background: var(--surface);
+    border: 0.5px solid rgba(0,0,0,0.08);
+    background: var(--card-solid);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 6px 20px rgba(0,0,0,0.05);
 }
 
 [data-testid="stDataFrame"] *,
 [data-testid="stDataEditor"] * {
-    font-family: 'JetBrains Mono', monospace !important;
+    font-family: inherit;
     font-variant-numeric: tabular-nums;
 }
 
 .stDataFrame {
-    border-radius: 0;
+    border-radius: 14px;
     overflow: hidden;
-    border: 1px solid var(--line-2);
+    border: 0.5px solid rgba(0,0,0,0.08);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 6px 20px rgba(0,0,0,0.05);
 }
 
-.stDataFrame table { background: var(--surface); }
+.stDataFrame table { background: #ffffff; }
 
 .stDataFrame th {
-    background: var(--surface-2);
-    color: var(--amber);
+    background: rgba(248,249,251,0.95);
+    color: var(--fg-2);
     font-weight: 600;
-    font-size: 0.66rem;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    border-bottom: 1px solid rgba(255,184,0,0.2);
-    padding: 12px 14px;
+    font-size: 0.75rem;
+    text-transform: none;
+    letter-spacing: 0;
+    border-bottom: 0.5px solid rgba(0,0,0,0.08);
+    padding: 11px 14px;
 }
 
 .stDataFrame td {
-    color: var(--fg-2);
-    border-bottom: 1px solid var(--line);
-    padding: 10px 14px;
-    font-size: 0.8rem;
+    color: var(--fg);
+    border-bottom: 0.5px solid rgba(0,0,0,0.05);
+    padding: 9px 14px;
+    font-size: 0.85rem;
 }
 
 .stDataFrame tr:hover td {
-    background: rgba(255,184,0,0.04);
-    color: var(--fg);
+    background: rgba(0,122,255,0.04);
 }
 
-/* ========== 提示条 ========== */
+/* ================= 提示条 ================= */
 [data-baseweb="notification"] {
-    border-radius: 0 !important;
-    border-left-width: 2px !important;
-    font-family: 'Inter', sans-serif;
-    font-size: 0.84rem;
+    border-radius: 12px !important;
+    border-left-width: 0 !important;
+    font-size: 0.85rem;
 }
 
 .stInfo, .stAlert.stInfo {
-    background: var(--surface);
-    border: 1px solid var(--line-2);
-    border-left: 2px solid var(--amber);
-    border-radius: 0;
-    color: var(--fg-2);
+    background: rgba(0,122,255,0.08);
+    border: 0.5px solid rgba(0,122,255,0.2);
+    border-radius: 12px;
+    color: #1a4d8f;
     padding: 13px 17px;
+    backdrop-filter: blur(10px);
 }
 .stSuccess {
-    background: var(--surface);
-    border: 1px solid var(--line-2);
-    border-left: 2px solid var(--green);
-    border-radius: 0;
-    color: #a7f3d0;
+    background: rgba(52,199,89,0.1);
+    border: 0.5px solid rgba(52,199,89,0.25);
+    border-radius: 12px;
+    color: #1e6b2e;
     padding: 13px 17px;
+    backdrop-filter: blur(10px);
 }
 .stWarning {
-    background: var(--surface);
-    border: 1px solid var(--line-2);
-    border-left: 2px solid #facc15;
-    border-radius: 0;
-    color: #fde68a;
+    background: rgba(255,149,0,0.1);
+    border: 0.5px solid rgba(255,149,0,0.25);
+    border-radius: 12px;
+    color: #8a5000;
     padding: 13px 17px;
+    backdrop-filter: blur(10px);
 }
 .stError {
-    background: var(--surface);
-    border: 1px solid var(--line-2);
-    border-left: 2px solid var(--red);
-    border-radius: 0;
-    color: #fecaca;
+    background: rgba(255,59,48,0.1);
+    border: 0.5px solid rgba(255,59,48,0.25);
+    border-radius: 12px;
+    color: #8b1f1a;
     padding: 13px 17px;
+    backdrop-filter: blur(10px);
 }
 
-/* ========== 其他 ========== */
+/* ================= 其他 ================= */
 .stCaption,
 [data-testid="stCaptionContainer"] {
     color: var(--fg-3);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68rem;
-    letter-spacing: 0.08em;
-}
-.stCaption::before {
-    content: '// ';
-    color: var(--amber);
-    opacity: 0.7;
+    font-size: 0.78rem;
 }
 
 hr, .stDivider {
-    border-color: var(--line) !important;
-    margin: 1.8rem 0 !important;
+    border-color: rgba(0,0,0,0.08) !important;
+    margin: 1.6rem 0 !important;
 }
 
-.js-plotly-plot .plotly .modebar { opacity: 0.15; transition: opacity .2s; }
-.js-plotly-plot:hover .plotly .modebar { opacity: 0.8; }
+.js-plotly-plot .plotly .modebar { opacity: 0.25; transition: opacity .2s; }
+.js-plotly-plot:hover .plotly .modebar { opacity: 0.9; }
 
-/* 滚动条 */
-::-webkit-scrollbar { width: 8px; height: 8px; }
+[data-testid="stPlotlyChart"] {
+    border-radius: 16px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.65);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 0.5px solid rgba(255,255,255,0.9);
+    box-shadow:
+        0 0 0 0.5px rgba(0,0,0,0.04),
+        0 4px 12px rgba(0,0,0,0.04),
+        0 16px 32px rgba(0,0,0,0.05);
+    padding: 12px 8px;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-    background: rgba(255,184,0,0.15);
-    border-radius: 0;
+    background: rgba(0,0,0,0.15);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,184,0,0.35); }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.3); background-clip: content-box; }
 
-/* 密码框 */
 .stTextInput > div > div > input[type="password"] {
-    letter-spacing: 0.35em;
-    font-size: 1rem;
-}
-
-/* Plotly 图表外容器 */
-[data-testid="stPlotlyChart"] {
-    border: 1px solid var(--line-2);
-    background: var(--surface);
+    letter-spacing: 0.25em;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -576,9 +513,11 @@ CASHFLOW_CATEGORIES = ["工资转入", "新增投入", "消费贷提款", "贷�
 INDEX_MAP = {"沪深300": "510300.SS", "中证500": "510500.SS", "科创50": "588000.SS", "创业板指": "159915.SZ", "纳斯达克100": "^NDX", "标普500": "^GSPC"}
 TIME_RANGES = ["近一月", "近三月", "今年以来", "近一年", "近三年", "开户以来", "自定义"]
 
-CHART_BG = "rgba(14,15,18,0.5)"
-CHART_GRID = "rgba(255,255,255,0.04)"
-CHART_TEXT = "#9ca3af"
+# macOS 系统配色
+MAIN_BLUE = "#007AFF"
+CHART_BG = "rgba(0,0,0,0)"
+CHART_GRID = "rgba(0,0,0,0.06)"
+CHART_TEXT = "#4b5563"
 
 @st.cache_resource
 def get_supabase() -> Client:
@@ -682,12 +621,12 @@ def fmt_pct(val):
 def chart_layout(fig, height=350):
     fig.update_layout(
         paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
-        font=dict(color=CHART_TEXT, size=11, family="JetBrains Mono, monospace"),
+        font=dict(color=CHART_TEXT, size=11, family="-apple-system, BlinkMacSystemFont, Inter, sans-serif"),
         xaxis=dict(gridcolor=CHART_GRID, zerolinecolor=CHART_GRID, linecolor=CHART_GRID),
         yaxis=dict(gridcolor=CHART_GRID, zerolinecolor=CHART_GRID, linecolor=CHART_GRID),
         margin=dict(t=20, b=15, l=15, r=15),
         height=height,
-        legend=dict(bgcolor="rgba(14,15,18,0.9)", bordercolor=CHART_GRID, borderwidth=1),
+        legend=dict(bgcolor="rgba(255,255,255,0.9)", bordercolor=CHART_GRID, borderwidth=1),
     )
     return fig
 
@@ -723,8 +662,8 @@ if not check_password():
 with st.sidebar:
     st.markdown("""
     <div class="side-brand">
-        <div class="side-brand-title">FIN·TERMINAL</div>
-        <div class="side-brand-sub">v1.0 / asset.board</div>
+        <div class="side-brand-title">资产管理</div>
+        <div class="side-brand-sub">Portfolio · v1.0</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -737,14 +676,14 @@ with st.sidebar:
 
     st.markdown(f"""
     <div class="side-footer">
-        SYSTEM <span>ONLINE</span><br>
+        状态：<span>在线</span><br>
         {datetime.datetime.now().strftime('%Y.%m.%d')}
     </div>
     """, unsafe_allow_html=True)
 
 # ================= 路由 =================
 if nav == "总览":
-    page_header("总览 / OVERVIEW", "PORTFOLIO · SNAPSHOT")
+    page_header("总览")
     accounts = get_all_accounts()
     net_asset = get_account_total(accounts)
     nav_df = get_nav_history()
@@ -756,9 +695,8 @@ if nav == "总览":
         total_return, total_profit = 0, 0
     today_change = nav_df.iloc[-1]["total_asset"] - nav_df.iloc[-2]["total_asset"] if len(nav_df) >= 2 else 0
 
-    # 主指标大 + 辅助小
     c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
-    c1.metric("净资产 / NET ASSET", fmt_money(net_asset), f"{fmt_money(today_change)} 今日")
+    c1.metric("净资产", fmt_money(net_asset), f"{fmt_money(today_change)} 今日")
     c2.metric("累计收益率", fmt_pct(total_return))
     c3.metric("累计收益额", fmt_money(total_profit))
     c4.metric("账户数量", f"{len(accounts)} 个")
@@ -776,12 +714,12 @@ if nav == "总览":
             asset_df = dist_df[dist_df["方向"] == "资产"]
             if not asset_df.empty:
                 fig = px.pie(asset_df, values="金额", names="账户",
-                             color_discrete_sequence=["#ffb800", "#ff9e00", "#00d26a", "#38bdf8", "#a78bfa", "#f0abfc"],
+                             color_discrete_sequence=["#007AFF", "#34C759", "#FF9500", "#5856D6", "#FF2D55", "#5AC8FA"],
                              hole=0.55)
                 chart_layout(fig)
                 fig.update_traces(textposition='inside', textinfo='percent+label',
-                                  marker=dict(line=dict(color="#08090b", width=2)),
-                                  textfont=dict(family="JetBrains Mono, monospace", size=11))
+                                  marker=dict(line=dict(color="#ffffff", width=2)),
+                                  textfont=dict(family="-apple-system, BlinkMacSystemFont, Inter, sans-serif", size=11, color="#ffffff"))
                 st.plotly_chart(fig, use_container_width=True)
         with col_tbl:
             d = dist_df.copy()
@@ -794,9 +732,9 @@ if nav == "总览":
         st.markdown("### 净资产走势")
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=nav_df["record_date"], y=nav_df["total_asset"],
-                                 fill='tozeroy', fillcolor='rgba(255,184,0,0.08)',
-                                 line=dict(color="#ffb800", width=2), mode='lines+markers',
-                                 marker=dict(size=5, color="#ffb800"),
+                                 fill='tozeroy', fillcolor='rgba(0,122,255,0.10)',
+                                 line=dict(color=MAIN_BLUE, width=2.5), mode='lines+markers',
+                                 marker=dict(size=5, color=MAIN_BLUE, line=dict(color="#ffffff", width=1.5)),
                                  name='净资产',
                                  hovertemplate='%{x|%Y-%m-%d}<br>净资产: ¥%{y:,.0f}<extra></extra>'))
         chart_layout(fig, 320)
@@ -804,7 +742,7 @@ if nav == "总览":
         st.plotly_chart(fig, use_container_width=True)
 
 elif nav == "每日更新":
-    page_header("每日更新 / DAILY LOG", "INPUT · SNAPSHOT")
+    page_header("每日更新")
     accounts = get_all_accounts()
     record_date = st.date_input("记录日期", value=datetime.date.today())
     if not accounts:
@@ -861,7 +799,7 @@ elif nav == "每日更新":
             st.rerun()
 
 elif nav == "投资分析":
-    page_header("投资分析 / ANALYTICS", "PERFORMANCE · BENCHMARK")
+    page_header("投资分析")
     nav_df = get_nav_history()
     if nav_df.empty:
         st.info("暂无净值数据，请先在「每日更新」中记录")
@@ -904,10 +842,10 @@ elif nav == "投资分析":
             filtered["my_return"] = (filtered["nav"] / first_nav - 1) * 100
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["my_return"], mode='lines+markers',
-                                     name='我的组合', line=dict(color="#ffb800", width=3),
-                                     marker=dict(size=6, color="#ffb800"),
+                                     name='我的组合', line=dict(color=MAIN_BLUE, width=3),
+                                     marker=dict(size=6, color=MAIN_BLUE, line=dict(color="#ffffff", width=1.5)),
                                      hovertemplate='%{x|%Y-%m-%d}<br>收益率: %{y:.2f}%<extra></extra>'))
-            idx_colors = ["#ff4757", "#facc15", "#a78bfa", "#00d26a", "#38bdf8", "#f0abfc"]
+            idx_colors = ["#FF3B30", "#FF9500", "#FFCC00", "#34C759", "#5856D6", "#AF52DE"]
             for i, idx_name in enumerate(selected_indices):
                 idx_df = get_index_data(idx_name, start_date, end_date + datetime.timedelta(days=1))
                 if not idx_df.empty:
@@ -922,21 +860,22 @@ elif nav == "投资分析":
             fig.update_yaxes(ticksuffix='%', title='收益率 (%)')
             fig.update_xaxes(title='日期')
             fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                                          bgcolor="rgba(14,15,18,0.9)"), hovermode='x unified')
-            fig.add_hline(y=0, line_dash="dot", line_color="rgba(255,255,255,0.12)", line_width=1)
+                                          bgcolor="rgba(255,255,255,0.9)"), hovermode='x unified')
+            fig.add_hline(y=0, line_dash="dot", line_color="rgba(0,0,0,0.15)", line_width=1)
             st.plotly_chart(fig, use_container_width=True)
             st.markdown("#### 净资产走势")
             fig2 = go.Figure()
             fig2.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["total_asset"],
-                                      fill='tozeroy', fillcolor='rgba(255,184,0,0.08)',
-                                      line=dict(color="#ffb800", width=2), mode='lines+markers',
-                                      marker=dict(size=5, color="#ffb800"), name='净资产'))
+                                      fill='tozeroy', fillcolor='rgba(0,122,255,0.10)',
+                                      line=dict(color=MAIN_BLUE, width=2.5), mode='lines+markers',
+                                      marker=dict(size=5, color=MAIN_BLUE, line=dict(color="#ffffff", width=1.5)),
+                                      name='净资产'))
             chart_layout(fig2, 280)
             fig2.update_yaxes(tickprefix='¥')
             st.plotly_chart(fig2, use_container_width=True)
 
 elif nav == "资金流水":
-    page_header("资金流水 / CASHFLOW", "INFLOW · OUTFLOW")
+    page_header("资金流水")
     cf_data = sb.table(TABLE_CASHFLOW).select("*").order("record_date", desc=True).execute().data
     if not cf_data:
         st.info("暂无出入金记录")
@@ -973,7 +912,7 @@ elif nav == "资金流水":
             st.rerun()
 
 elif nav == "持仓明细":
-    page_header("持仓明细 / HOLDINGS", "POSITIONS · P&L")
+    page_header("持仓明细")
     assets_data = sb.table(TABLE_ASSETS).select("*").order("id").execute().data
     if assets_data:
         assets_df = pd.DataFrame(assets_data)
@@ -1008,14 +947,14 @@ elif nav == "持仓明细":
             st.rerun()
 
 elif nav == "账户管理":
-    page_header("账户管理 / ACCOUNTS", "CONFIG · BACKUP")
+    page_header("账户管理")
     accounts = get_all_accounts(active_only=False)
     if accounts:
         edit_acc = st.data_editor(pd.DataFrame(accounts), use_container_width=True, hide_index=True, column_config={
             "id": st.column_config.NumberColumn(disabled=True),
             "account_name": st.column_config.TextColumn("账户名称"),
-            "account_type": st.column_config.SelectboxColumn("类型", options=list(ACCOUNT_TYPES.values())),
-            "direction": st.column_config.SelectboxColumn("方向", options=["资产", "负债"]),
+            "account_type": st.column_config.SelectboxColumn("类型", options=list(ACCOUNT_TYPES.keys())),
+            "direction": st.column_config.SelectboxColumn("方向", options=["asset", "liability"]),
             "interest_rate": st.column_config.NumberColumn("年利率(%)", format="%.2f"),
             "principal": st.column_config.NumberColumn("本金", format="¥%.2f"),
             "accrued_interest": st.column_config.NumberColumn("累计利息", format="¥%.2f"),
@@ -1026,8 +965,7 @@ elif nav == "账户管理":
         }, num_rows="dynamic", key="acc_editor")
         if st.button("💾 保存账户修改"):
             for _, row in edit_acc.iterrows():
-                _type_rev = {v: k for k, v in ACCOUNT_TYPES.items()}
-                data = {"account_name": row["account_name"], "account_type": _type_rev.get(row["account_type"], row["account_type"]), "direction": "asset" if row["direction"] == "资产" else "liability", "interest_rate": row["interest_rate"], "principal": row["principal"], "accrued_interest": row["accrued_interest"], "sort_order": row["sort_order"], "is_active": row["is_active"]}
+                data = {"account_name": row["account_name"], "account_type": row["account_type"], "direction": row["direction"], "interest_rate": row["interest_rate"], "principal": row["principal"], "accrued_interest": row["accrued_interest"], "sort_order": row["sort_order"], "is_active": row["is_active"]}
                 if pd.notna(row.get("id")):
                     sb.table(TABLE_ACCOUNTS).update(data).eq("id", int(row["id"])).execute()
                 else:
@@ -1041,12 +979,11 @@ elif nav == "账户管理":
     st.markdown("#### 快速添加账户")
     qc1, qc2, qc3, qc4 = st.columns(4)
     with qc1: new_name = st.text_input("账户名称", key="new_acc_name")
-    with qc2: new_type = st.selectbox("类型", list(ACCOUNT_TYPES.values()), key="new_acc_type")
-    with qc3: new_dir = st.selectbox("方向", ["资产", "负债"], key="new_acc_dir")
+    with qc2: new_type = st.selectbox("类型", list(ACCOUNT_TYPES.keys()), key="new_acc_type")
+    with qc3: new_dir = st.selectbox("方向", ["asset", "liability"], key="new_acc_dir")
     with qc4: new_rate = st.number_input("年利率(%)", value=0.0, key="new_acc_rate")
     if st.button("➕ 添加账户") and new_name:
-        _type_rev = {v: k for k, v in ACCOUNT_TYPES.items()}
-        sb.table(TABLE_ACCOUNTS).insert({"account_name": new_name, "account_type": _type_rev.get(new_type, new_type), "direction": "asset" if new_dir == "资产" else "liability", "interest_rate": new_rate, "principal": 0, "accrued_interest": 0, "last_interest_date": datetime.date.today().isoformat(), "sort_order": len(accounts) + 1 if accounts else 1}).execute()
+        sb.table(TABLE_ACCOUNTS).insert({"account_name": new_name, "account_type": new_type, "direction": new_dir, "interest_rate": new_rate, "principal": 0, "accrued_interest": 0, "last_interest_date": datetime.date.today().isoformat(), "sort_order": len(accounts) + 1 if accounts else 1}).execute()
         st.success(f"已添加账户：{new_name}")
         st.rerun()
 
