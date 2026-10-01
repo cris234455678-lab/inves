@@ -757,10 +757,10 @@ if nav == "总览":
             total_liab = sum(a["principal"] + a["accrued_interest"] for a in liab_accs)
             self_liab = sum(a["principal"] + a["accrued_interest"] for a in liab_accs if a.get("liability_owner", "self") == "self")
             proxy_liab = sum(a["principal"] + a["accrued_interest"] for a in liab_accs if a.get("liability_owner", "self") == "proxy")
-            # 利息：自己的负债利息=支出，代他人负债+债权利息=收益
+            # 利息：债权利息=收益，所有负债利息=支出（代他人使用的负债也对应着等额债权，债权收益会自然抵消）
             credit_accs = [a for a in accounts if a["direction"] == "asset" and a.get("account_type") == "credit"]
-            interest_income = sum(a["accrued_interest"] for a in credit_accs) + sum(a["accrued_interest"] for a in liab_accs if a.get("liability_owner", "self") == "proxy")
-            interest_expense = sum(a["accrued_interest"] for a in liab_accs if a.get("liability_owner", "self") == "self")
+            interest_income = sum(a["accrued_interest"] for a in credit_accs)
+            interest_expense = sum(a["accrued_interest"] for a in liab_accs)
             net_interest = interest_income - interest_expense
             lc1.metric("总负债", fmt_money(total_liab))
             lc2.metric("自己使用", fmt_money(self_liab))
