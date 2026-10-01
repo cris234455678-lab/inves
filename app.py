@@ -111,7 +111,7 @@ html, body, [class*="css"] {
     cursor: pointer;
     transition: background .15s ease, color .15s ease;
     color: var(--fg) !important;
-    font-size: 1rem !important;
+    font-size: 1.15rem !important;
     font-weight: 500;
     letter-spacing: -0.005em;
 }
@@ -137,7 +137,7 @@ html, body, [class*="css"] {
 
 [data-testid="stSidebar"] [role="radiogroup"] > label p {
     color: inherit !important;
-    font-size: 1rem !important;
+    font-size: 1.15rem !important;
     font-weight: inherit !important;
     margin: 0;
 }
@@ -512,6 +512,8 @@ ACCOUNT_TYPES = {"stock": "股票账户", "option": "期权账户", "futures": "
 ACCOUNT_TYPE_REVERSE = {v: k for k, v in ACCOUNT_TYPES.items()}
 DIRECTION_CN = {"asset": "资产", "liability": "负债"}
 DIRECTION_REVERSE = {"资产": "asset", "负债": "liability"}
+LIABILITY_OWNER = {"self": "自己使用", "proxy": "代他人使用"}
+LIABILITY_OWNER_REVERSE = {v: k for k, v in LIABILITY_OWNER.items()}
 
 CASHFLOW_CATEGORIES = ["工资转入", "新增投入", "消费贷提款", "贷款提款", "提现消费", "还贷本金", "还贷利息", "借出款项", "收回借款", "收到利息", "其他"]
 INDEX_MAP = {"沪深300": "510300.SS", "中证500": "510500.SS", "科创50": "588000.SS", "创业板指": "159915.SZ", "纳斯达克100": "^NDX", "标普500": "^GSPC"}
@@ -746,6 +748,46 @@ if nav == "总览":
     else:
         st.info("暂无账户数据，请先在「账户管理」中添加账户")
 
+    # 负债分析
+    if accounts:
+        liab_accs = [a for a in accounts if a["direction"] == "liability"]
+        if liab_accs:
+            st.markdown("### 负债与利息")
+            lc1, lc2, lc3, lc4 = st.columns(4)
+            total_liab = sum(a["principal"] + a["accrued_interest"] for a in liab_accs)
+            self_liab = sum(a["principal"] + a["accrued_interest"] for a in liab_accs if a.get("liability_owner", "self") == "self")
+            proxy_liab = sum(a["principal"] + a["accrued_interest"] for a in liab_accs if a.get("liability_owner", "self") == "proxy")
+            # 利息：自己的负债利息=支出，代他人负债+债权利息=收益
+            credit_accs = [a for a in accounts if a["direction"] == "asset" and a.get("account_type") == "credit"]
+            interest_income = sum(a["accrued_interest"] for a in credit_accs) + sum(a["accrued_interest"] for a in liab_accs if a.get("liability_owner", "self") == "proxy")
+            interest_expense = sum(a["accrued_interest"] for a in liab_accs if a.get("liability_owner", "self") == "self")
+            net_interest = interest_income - interest_expense
+            lc1.metric("总负债", fmt_money(total_liab))
+            lc2.metric("自己使用", fmt_money(self_liab))
+            lc3.metric("代他人使用", fmt_money(proxy_liab))
+            lc4.metric("净利息收支", fmt_money(net_interest), f"收益{fmt_money(interest_income)} / 支出{fmt_money(interest_expense)}")
+            
+            # 负债构成饼图
+            liab_data = []
+            for a in liab_accs:
+                owner = LIABILITY_OWNER.get(a.get("liability_owner", "self"), a.get("liability_owner", "self"))
+                liab_data.append({"账户": a["account_name"], "归属": owner, "金额": a["principal"] + a["accrued_interest"]})
+            liab_df = pd.DataFrame(liab_data)
+            col_pie2, col_tbl2 = st.columns([1, 1])
+            with col_pie2:
+                fig_l = px.pie(liab_df, values="金额", names="账户",
+                               color_discrete_sequence=["#FF3B30", "#FF9500", "#AF52DE", "#FF2D55", "#5856D6"],
+                               hole=0.55)
+                chart_layout(fig_l)
+                fig_l.update_traces(textposition='inside', textinfo='percent+label',
+                                    marker=dict(line=dict(color="#ffffff", width=2)),
+                                    textfont=dict(family="-apple-system, BlinkMacSystemFont, Inter, sans-serif", size=11, color="#ffffff"))
+                st.plotly_chart(fig_l, use_container_width=True)
+            with col_tbl2:
+                d2 = liab_df.copy()
+                d2["金额"] = d2["金额"].apply(lambda x: f"¥{x:,.2f}")
+                st.dataframe(d2, use_container_width=True, hide_index=True)
+
     if not nav_df.empty:
         st.markdown("### 净资产走势")
         fig = go.Figure()
@@ -927,15 +969,31 @@ elif nav == "投资分析":
                                           bgcolor="rgba(255,255,255,0.9)"), hovermode='x unified')
             fig.add_hline(y=0, line_dash="dot", line_color="rgba(0,0,0,0.15)", line_width=1)
             st.plotly_chart(fig, use_container_width=True)
-            st.markdown("#### 净资产走势")
+            # 增加更多趋势指标：净值走势、回撤走势
+            st.markdown("#### 净值与回撤走势")
             fig2 = go.Figure()
-            fig2.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["total_asset"],
-                                      fill='tozeroy', fillcolor='rgba(0,122,255,0.10)',
-                                      line=dict(color=MAIN_BLUE, width=2.5), mode='lines+markers',
-                                      marker=dict(size=5, color=MAIN_BLUE, line=dict(color="#ffffff", width=1.5)),
-                                      name='净资产',
-                                      hovertemplate='%{x|%Y-%m-%d}<br>净资产: ¥%{y:,.0f}<extra></extra>'))
-            chart_layout(fig2, 280)
+            # 净值走势（左轴）
+            fig2.add_trace(go.Scatter(x=filtered["record_date"], y=filtered["nav"], mode='lines+markers',
+                                     name='净值', line=dict(color=MAIN_BLUE, width=2.5),
+                                     marker=dict(size=5, color=MAIN_BLUE, line=dict(color="#ffffff", width=1.5)),
+                                     yaxis='y',
+                                     hovertemplate='%{x|%Y-%m-%d}<br>净值: %{y:.4f}<extra></extra>'))
+            # 回撤走势（右轴）
+            peak_vals = np.maximum.accumulate(filtered["nav"].values)
+            drawdown = ((filtered["nav"].values - peak_vals) / peak_vals * 100)
+            fig2.add_trace(go.Scatter(x=filtered["record_date"], y=drawdown, mode='lines',
+                                     name='回撤', line=dict(color="#FF3B30", width=1.5, dash='dot'),
+                                     fill='tozeroy', fillcolor='rgba(255,59,48,0.08)',
+                                     yaxis='y2',
+                                     hovertemplate='%{x|%Y-%m-%d}<br>回撤: %{y:.2f}%<extra></extra>'))
+            chart_layout(fig2, 320)
+            fig2.update_layout(
+                yaxis=dict(title='净值', side='left'),
+                yaxis2=dict(title='回撤 (%)', side='right', overlaying='y', ticksuffix='%'),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                hovermode='x unified'
+            )
+            fig2.update_xaxes(tickformat='%Y-%m-%d', hoverformat='%Y-%m-%d', type='date')
             fig2.update_yaxes(tickprefix='¥')
             fig2.update_xaxes(tickformat='%Y-%m-%d', hoverformat='%Y-%m-%d')
             st.plotly_chart(fig2, use_container_width=True)
@@ -1024,6 +1082,7 @@ elif nav == "账户管理":
         display_acc = pd.DataFrame(accounts).copy()
         display_acc["account_type"] = display_acc["account_type"].map(lambda x: ACCOUNT_TYPES.get(x, x))
         display_acc["direction"] = display_acc["direction"].map(lambda x: DIRECTION_CN.get(x, x))
+        display_acc["liability_owner"] = display_acc["liability_owner"].fillna("self").map(lambda x: LIABILITY_OWNER.get(x, x))
 
         # 关键修复：账户管理的 update_time 也短格式化
         if "update_time" in display_acc.columns:
@@ -1034,6 +1093,7 @@ elif nav == "账户管理":
             "account_name": st.column_config.TextColumn("账户名称"),
             "account_type": st.column_config.SelectboxColumn("类型", options=list(ACCOUNT_TYPES.values())),
             "direction": st.column_config.SelectboxColumn("方向", options=["资产", "负债"]),
+            "liability_owner": st.column_config.SelectboxColumn("负债归属", options=list(LIABILITY_OWNER.values())),
             "interest_rate": st.column_config.NumberColumn("年利率(%)", format="%.2f"),
             "principal": st.column_config.NumberColumn("本金", format="¥%.2f"),
             "accrued_interest": st.column_config.NumberColumn("累计利息", format="¥%.2f"),
@@ -1054,6 +1114,7 @@ elif nav == "账户管理":
                     "account_name": row["account_name"],
                     "account_type": type_en,
                     "direction": direction_en,
+                    "liability_owner": LIABILITY_OWNER_REVERSE.get(row["liability_owner"], "self"),
                     "interest_rate": row["interest_rate"],
                     "principal": row["principal"],
                     "accrued_interest": row["accrued_interest"],
@@ -1075,9 +1136,10 @@ elif nav == "账户管理":
     with qc1: new_name = st.text_input("账户名称", key="new_acc_name")
     with qc2: new_type = st.selectbox("类型", list(ACCOUNT_TYPES.keys()), format_func=lambda k: ACCOUNT_TYPES[k], key="new_acc_type")
     with qc3: new_dir = st.selectbox("方向", ["asset", "liability"], format_func=lambda k: DIRECTION_CN[k], key="new_acc_dir")
+    with qc4: new_owner = st.selectbox("负债归属", list(LIABILITY_OWNER.keys()), format_func=lambda k: LIABILITY_OWNER[k], key="new_acc_owner")
     with qc4: new_rate = st.number_input("年利率(%)", value=0.0, key="new_acc_rate")
     if st.button("➕ 添加账户") and new_name:
-        sb.table(TABLE_ACCOUNTS).insert({"account_name": new_name, "account_type": new_type, "direction": new_dir, "interest_rate": new_rate, "principal": 0, "accrued_interest": 0, "last_interest_date": datetime.date.today().isoformat(), "sort_order": len(accounts) + 1 if accounts else 1}).execute()
+        sb.table(TABLE_ACCOUNTS).insert({"account_name": new_name, "account_type": new_type, "direction": new_dir, "liability_owner": new_owner, "interest_rate": new_rate, "principal": 0, "accrued_interest": 0, "last_interest_date": datetime.date.today().isoformat(), "sort_order": len(accounts) + 1 if accounts else 1}).execute()
         st.success(f"已添加账户：{new_name}")
         st.rerun()
 
