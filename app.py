@@ -103,15 +103,15 @@ html, body, [class*="css"] {
 [data-testid="stSidebar"] [role="radiogroup"] > label {
     display: flex !important;
     align-items: center;
-    padding: 10px 14px !important;
+    padding: 12px 16px !important;
     margin: 0 !important;
-    border-radius: 9px !important;
-    border: none !important;
+    border-radius: 10px !important;
+    border: 1px solid transparent !important;
     background: transparent !important;
     cursor: pointer;
-    transition: background .15s ease, color .15s ease;
-    color: var(--fg) !important;
-    font-size: 1.15rem !important;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+    color: var(--fg-2) !important;
+    font-size: 1.3rem !important;
     font-weight: 500;
     letter-spacing: -0.005em;
 }
@@ -121,23 +121,25 @@ html, body, [class*="css"] {
 }
 
 [data-testid="stSidebar"] [role="radiogroup"] > label:hover {
-    background: rgba(0,0,0,0.045) !important;
+    background: rgba(0,122,255,0.06) !important;
+    color: var(--fg) !important;
 }
 
 [data-testid="stSidebar"] [role="radiogroup"] > label:has(input:checked) {
-    background: var(--blue) !important;
-    color: #ffffff !important;
+    background: rgba(0,122,255,0.10) !important;
+    color: var(--blue) !important;
     font-weight: 600;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.08), 0 4px 12px rgba(0,122,255,0.25);
+    border-color: rgba(0,122,255,0.20) !important;
+    box-shadow: 0 1px 3px rgba(0,122,255,0.08);
 }
 
 [data-testid="stSidebar"] [role="radiogroup"] > label:has(input:checked) p {
-    color: #ffffff !important;
+    color: var(--blue) !important;
 }
 
 [data-testid="stSidebar"] [role="radiogroup"] > label p {
     color: inherit !important;
-    font-size: 1.15rem !important;
+    font-size: 1.3rem !important;
     font-weight: inherit !important;
     margin: 0;
 }
