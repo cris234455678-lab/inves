@@ -120,6 +120,11 @@ html, body, [class*="css"] {
     display: none !important;
 }
 
+/* 隐藏radio默认的红色圆点 */
+[data-testid="stSidebar"] [data-testid="stRadioOption"] div[class*="e1mpz0hj4"] {
+    display: none !important;
+}
+
 [data-testid="stSidebar"] [data-testid="stRadioOption"]:hover {
     background: rgba(0,122,255,0.06) !important;
     color: var(--fg) !important;
