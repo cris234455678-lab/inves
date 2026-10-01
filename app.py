@@ -100,7 +100,7 @@ html, body, [class*="css"] {
     padding: 0 0.5rem;
 }
 
-[data-testid="stSidebar"] [role="radiogroup"] > label {
+[data-testid="stSidebar"] [data-testid="stRadioOption"] {
     display: flex !important;
     align-items: center;
     padding: 12px 16px !important;
@@ -116,16 +116,16 @@ html, body, [class*="css"] {
     letter-spacing: -0.005em;
 }
 
-[data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {
+[data-testid="stSidebar"] [data-testid="stRadioOption"] > div:first-child {
     display: none !important;
 }
 
-[data-testid="stSidebar"] [role="radiogroup"] > label:hover {
+[data-testid="stSidebar"] [data-testid="stRadioOption"]:hover {
     background: rgba(0,122,255,0.06) !important;
     color: var(--fg) !important;
 }
 
-[data-testid="stSidebar"] [role="radiogroup"] > label:has(input:checked) {
+[data-testid="stSidebar"] [data-testid="stRadioOption"][data-selected="true"] {
     background: rgba(0,122,255,0.10) !important;
     color: var(--blue) !important;
     font-weight: 600;
@@ -133,15 +133,16 @@ html, body, [class*="css"] {
     box-shadow: 0 1px 3px rgba(0,122,255,0.08);
 }
 
-[data-testid="stSidebar"] [role="radiogroup"] > label:has(input:checked) p {
+[data-testid="stSidebar"] [data-testid="stRadioOption"][data-selected="true"] p {
     color: var(--blue) !important;
 }
 
-[data-testid="stSidebar"] [role="radiogroup"] > label p {
+[data-testid="stSidebar"] [data-testid="stRadioOption"] p {
     color: inherit !important;
     font-size: 1.3rem !important;
     font-weight: inherit !important;
     margin: 0;
+    line-height: 1.4;
 }
 
 .side-footer {
